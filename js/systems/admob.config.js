@@ -1,26 +1,20 @@
 /**
- * AdMob unit IDs — replace with your IDs from https://admob.google.com
+ * AdMob — https://admob.google.com
  *
- * 1. Create app "Block Blast Evolved" in AdMob (link to Play Store when published)
- * 2. Create ad units: Banner + Interstitial
- * 3. Paste IDs below and set IS_TEST_MODE to false for production
+ * App ID: AdMob → Apps → your app → App settings (format: ca-app-pub-XXXX~YYYY)
+ * Ad units: Banner + Interstitial (format: ca-app-pub-XXXX/ZZZZ)
  */
 
-export const IS_TEST_MODE = true;
+export const IS_TEST_MODE = false;
 
-/** Google official test IDs — safe for development */
 export const ADMOB_IDS = {
-  app: 'ca-app-pub-3940256099942544~3347511713',
-  banner: 'ca-app-pub-3940256099942544/6300978111',
+  // TODO: paste App ID from AdMob (with ~). Required for AndroidManifest + capacitor.config.json
+  app: 'ca-app-pub-9011390098995936~0000000000',
+  banner: 'ca-app-pub-9011390098995936/1079287107',
+  // TODO: create Interstitial ad unit in AdMob and paste here
   interstitial: 'ca-app-pub-3940256099942544/1033173712',
   rewarded: 'ca-app-pub-3940256099942544/5224354917'
 };
 
-// Production example (uncomment and fill after AdMob setup):
-// export const IS_TEST_MODE = false;
-// export const ADMOB_IDS = {
-//   app: 'ca-app-pub-XXXXXXXX~YYYYYYYY',
-//   banner: 'ca-app-pub-XXXXXXXX/ZZZZZZZZ',
-//   interstitial: 'ca-app-pub-XXXXXXXX/WWWWWWWW',
-//   rewarded: 'ca-app-pub-XXXXXXXX/RRRRRRRR'
-// };
+/** Set true until ADMOB_IDS.app has your real ~ ID from AdMob dashboard */
+export const ADMOB_APP_ID_PENDING = ADMOB_IDS.app.includes('0000000000');

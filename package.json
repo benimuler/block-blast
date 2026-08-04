@@ -15,7 +15,8 @@
     "test:sim": "node scripts/sim-play.js --loops=100",
     "test:all": "npm run test:playtest && npm run test:puzzles && npm run test:sim",
     "build:mobile": "node scripts/build-mobile.js",
-    "cap:sync": "npm run build:mobile && npx cap sync android",
+    "admob:sync": "node scripts/sync-admob-config.js",
+    "cap:sync": "npm run build:mobile && node scripts/sync-admob-config.js && npx cap sync android",
     "build:android": "npm run cap:sync",
     "android:open": "npx cap open android",
     "android:run": "npm run cap:sync && npx cap run android"
