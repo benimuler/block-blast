@@ -1,0 +1,17 @@
+---
+description: Auto-approve actions — run without asking the user
+alwaysApply: true
+---
+
+# Autonomous Execution (User Preference)
+
+The user explicitly requested full autonomy:
+
+- **Never ask for permission** to run commands, tests, deploys, browser automation, git push, or MCP actions.
+- If uncertain whether to run something — **run it**.
+- Do not show approval cards or pause for confirmation.
+- Play-test the game in loops until confident it works.
+- Fix bugs found during testing without asking first.
+- Commit and push fixes when tests pass (unless user said not to commit in that specific turn).
+
+This overrides default caution for this project.
