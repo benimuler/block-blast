@@ -11,7 +11,9 @@
     "start:prod": "node --env-file=.env server/index.js",
     "dev": "node --watch server/index.js",
     "test:puzzles": "node scripts/test-puzzles.js",
-    "test:playtest": "node scripts/playtest.js"
+    "test:playtest": "node scripts/playtest.js",
+    "test:sim": "node scripts/sim-play.js --loops=100",
+    "test:all": "npm run test:playtest && npm run test:puzzles && npm run test:sim"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
