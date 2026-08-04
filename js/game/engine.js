@@ -114,6 +114,14 @@ export class GameEngine {
     this.pieces = pieces;
   }
 
+  checkSurvivalEnd() {
+    if (this.mode !== 'survival' || this.gameOver || this.won) return;
+    if (!hasAnyValidMove(this.board, this.pieces)) {
+      this.gameOver = true;
+      this.onGameOver?.();
+    }
+  }
+
   rotatePiece(pieceId) {
     if (!this.effects.rotation || this.abilities.rotationUsed) return false;
     const piece = this.pieces.find(p => p.id === pieceId);
@@ -121,6 +129,7 @@ export class GameEngine {
     piece.shape = rotateShape(piece.shape);
     piece.rotated = true;
     this.abilities.rotationUsed = true;
+    if (this.mode === 'survival') this.checkSurvivalEnd();
     this.notify();
     return true;
   }
@@ -208,16 +217,12 @@ export class GameEngine {
           this.onPuzzleFail?.();
         }
       }
+    } else if (this.pieces.every(p => p.used) && this.mode === 'survival') {
+      this.generateTray();
     }
 
-    if (this.pieces.every(p => p.used)) {
-      if (this.mode === 'survival') {
-        this.generateTray();
-        if (!hasAnyValidMove(this.board, this.pieces)) {
-          this.gameOver = true;
-          this.onGameOver?.();
-        }
-      }
+    if (this.mode === 'survival') {
+      this.checkSurvivalEnd();
     }
 
     this.notify();
