@@ -38,6 +38,8 @@ body {
   margin: 0 auto;
   min-height: 100dvh;
   position: relative;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .screen {
@@ -53,6 +55,8 @@ body {
 /* opacity-only animation — transform breaks position:fixed on iOS inside .screen */
 #screen-game.active {
   animation: fadeInOpacity 0.3s ease;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 @keyframes fadeIn {
@@ -244,7 +248,8 @@ body {
   grid-template-columns: repeat(8, 1fr);
   gap: 3px;
   width: var(--board-size);
-  height: var(--board-size);
+  aspect-ratio: 1;
+  height: auto;
   background: var(--bg-board);
   border-radius: var(--radius);
   padding: 6px;
@@ -335,6 +340,8 @@ body {
   transition: border-color 0.08s, transform 0.08s, opacity 0.08s;
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .tray-piece:hover:not(.used) { border-color: var(--cell-border); }
@@ -1100,62 +1107,74 @@ body.duel-mode .duel-timer {
 .duel-timer { color: var(--danger) !important; font-weight: 700; }
 
 /* ── Mobile game layout ── */
-@media (max-height: 740px) {
-  :root { --board-size: min(70vw, 290px); }
-}
-
-@media (max-height: 640px) {
-  :root { --board-size: min(64vw, 250px); }
-}
-
 @media (max-width: 480px), (hover: none) {
+  :root {
+    --game-chrome: calc(132px + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
+    --board-size: min(calc(100vw - 24px), calc(100dvh - var(--game-chrome)), 480px);
+  }
+
   #screen-game.active {
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      12px
+      calc(8px + env(safe-area-inset-bottom, 0px));
     max-height: 100dvh;
     overflow: hidden;
   }
 
   #screen-game .game-header {
     flex-shrink: 0;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   #screen-game .game-abilities {
     flex-shrink: 0;
     margin-bottom: 4px;
+    min-height: 0;
+  }
+
+  #screen-game .game-abilities:empty {
+    display: none;
+    margin-bottom: 0;
   }
 
   #screen-game .board-container {
-    flex: 0 0 auto;
-    margin: 0 auto 8px;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    margin: 0 auto 6px;
   }
 
   #screen-game .board {
-    width: min(var(--board-size), 100%);
-    height: min(var(--board-size), calc(100dvh - 250px));
+    width: var(--board-size);
+    max-width: 100%;
+    max-height: 100%;
   }
 
   /* flex layout — NOT position:fixed (breaks inside animated .screen on iOS) */
   #screen-game .tray-container {
     flex: 0 0 auto;
     width: 100%;
-    min-height: 100px;
-    margin-top: 4px;
-    padding: 12px 8px;
+    min-height: 84px;
+    margin-top: 0;
+    padding: 10px 8px;
     background: var(--bg-card);
     border: 2px solid var(--cell-border);
     border-radius: var(--radius);
   }
 
   #screen-game .tray {
-    min-height: 88px;
+    min-height: 72px;
     gap: 10px;
   }
 
   #screen-game .tray-piece {
-    padding: 8px;
-    min-width: 52px;
-    min-height: 52px;
+    padding: 6px;
+    min-width: 48px;
+    min-height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1167,6 +1186,11 @@ body.duel-mode .duel-timer {
   #screen-game .combo-bar:not(.hidden) {
     flex-shrink: 0;
     margin: 4px 0;
+  }
+
+  #screen-game .puzzle-info:not(.hidden) {
+    flex-shrink: 0;
+    margin-bottom: 4px;
   }
 }
 

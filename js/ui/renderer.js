@@ -26,6 +26,7 @@ export class Renderer {
     this._rafId = null;
     this.grabOffsetX = 0;
     this.grabOffsetY = 0;
+    this._activePointerId = null;
     this.inputLocked = false;
     this.onPlace = null;
     this.onRotate = null;
@@ -56,12 +57,22 @@ export class Renderer {
     }
   }
 
+  /** Map touch/pointer coords to layout viewport (position:fixed uses layout viewport). */
+  clientToLayout(clientX, clientY) {
+    const vv = window.visualViewport;
+    if (!vv) return { x: clientX, y: clientY };
+    return {
+      x: clientX + vv.offsetLeft,
+      y: clientY + vv.offsetTop
+    };
+  }
+
   getBoardMetrics() {
     const rect = this.boardEl.getBoundingClientRect();
     const padding = 6;
     const gap = 3;
-    const innerW = rect.width - padding * 2;
-    const cellSize = (innerW - gap * (GRID_SIZE - 1)) / GRID_SIZE;
+    const inner = Math.min(rect.width, rect.height) - padding * 2;
+    const cellSize = (inner - gap * (GRID_SIZE - 1)) / GRID_SIZE;
     return { rect, padding, gap, cellSize };
   }
 
@@ -122,38 +133,32 @@ export class Renderer {
       }
     };
 
-    this._onMouseMove = e => handleMove(e.clientX, e.clientY);
-    this._onMouseUp = e => handleEnd(e.clientX, e.clientY);
-    this._onTouchMove = e => {
+    this._onPointerMove = e => {
+      if (this._activePointerId != null && e.pointerId !== this._activePointerId) return;
       e.preventDefault();
-      const t = e.touches[0];
-      handleMove(t.clientX, t.clientY);
+      handleMove(e.clientX, e.clientY);
     };
-    this._onTouchEnd = e => {
-      const t = e.changedTouches[0];
-      if (t) handleEnd(t.clientX, t.clientY);
+    this._onPointerUp = e => {
+      if (this._activePointerId != null && e.pointerId !== this._activePointerId) return;
+      handleEnd(e.clientX, e.clientY);
     };
-    this._onTouchCancel = () => this.endDrag();
+    this._onPointerCancel = () => this.endDrag();
     this._onDragBlur = () => {
       if (this.dragPiece) this.endDrag();
     };
   }
 
   attachDragListeners() {
-    document.addEventListener('mousemove', this._onMouseMove, { passive: true });
-    document.addEventListener('mouseup', this._onMouseUp);
-    document.addEventListener('touchmove', this._onTouchMove, { passive: false });
-    document.addEventListener('touchend', this._onTouchEnd);
-    document.addEventListener('touchcancel', this._onTouchCancel);
+    document.addEventListener('pointermove', this._onPointerMove, { passive: false });
+    document.addEventListener('pointerup', this._onPointerUp);
+    document.addEventListener('pointercancel', this._onPointerCancel);
     window.addEventListener('blur', this._onDragBlur);
   }
 
   cleanupDragListeners() {
-    document.removeEventListener('mousemove', this._onMouseMove);
-    document.removeEventListener('mouseup', this._onMouseUp);
-    document.removeEventListener('touchmove', this._onTouchMove);
-    document.removeEventListener('touchend', this._onTouchEnd);
-    document.removeEventListener('touchcancel', this._onTouchCancel);
+    document.removeEventListener('pointermove', this._onPointerMove);
+    document.removeEventListener('pointerup', this._onPointerUp);
+    document.removeEventListener('pointercancel', this._onPointerCancel);
     window.removeEventListener('blur', this._onDragBlur);
     if (this._rafId) {
       cancelAnimationFrame(this._rafId);
@@ -201,13 +206,17 @@ export class Renderer {
     this.dragGhost.appendChild(this.createPieceGrid(piece, ghostCell, gap));
     this.dragGhost.classList.remove('hidden');
     this.moveDragGhost(clientX, clientY);
+    if (this._activePointerId != null && sourceEl?.setPointerCapture) {
+      try { sourceEl.setPointerCapture(this._activePointerId); } catch { /* already captured */ }
+    }
     this.attachDragListeners();
   }
 
   moveDragGhost(clientX, clientY) {
     if (!this.dragGhost) return;
-    const x = clientX - this.grabOffsetX;
-    const y = clientY - this.grabOffsetY;
+    const { x: lx, y: ly } = this.clientToLayout(clientX, clientY);
+    const x = lx - this.grabOffsetX;
+    const y = ly - this.grabOffsetY;
     this.dragGhost.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   }
 
@@ -216,9 +225,13 @@ export class Renderer {
     this.clearPreview();
     this.dragPiece = null;
     if (this.dragSourceEl) {
+      if (this._activePointerId != null && this.dragSourceEl.releasePointerCapture) {
+        try { this.dragSourceEl.releasePointerCapture(this._activePointerId); } catch { /* ok */ }
+      }
       this.dragSourceEl.classList.remove('dragging');
       this.dragSourceEl = null;
     }
+    this._activePointerId = null;
     if (this.dragGhost) {
       this.dragGhost.classList.add('hidden');
       this.dragGhost.innerHTML = '';
@@ -290,46 +303,42 @@ export class Renderer {
       el.appendChild(this.createPieceGrid(piece, cellPx));
       el._previewFn = (row, col) => getPreviewForPiece(piece, row, col);
 
-      el.addEventListener('mousedown', e => {
+      el.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
         e.preventDefault();
         const gridEl = el.querySelector('.piece-grid');
         const gridRect = gridEl?.getBoundingClientRect();
         const grabX = gridRect ? e.clientX - gridRect.left : null;
         const grabY = gridRect ? e.clientY - gridRect.top : null;
-        this.startDrag(piece, el, e.clientX, e.clientY, grabX, grabY);
-      });
-
-      el.addEventListener('touchstart', e => {
-        e.preventDefault();
-        const t = e.touches[0];
-        if (!t) return;
-        const gridEl = el.querySelector('.piece-grid');
-        const gridRect = gridEl?.getBoundingClientRect();
-        const grabX = gridRect ? t.clientX - gridRect.left : null;
-        const grabY = gridRect ? t.clientY - gridRect.top : null;
-        const startX = t.clientX;
-        const startY = t.clientY;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const pointerId = e.pointerId;
         let started = false;
 
-        const onMove = (ev) => {
-          const touch = ev.touches[0];
-          if (!touch || started) return;
-          if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 8) {
-            started = true;
-            cleanup();
-            this.startDrag(piece, el, touch.clientX, touch.clientY, grabX, grabY);
-          }
-        };
-        const onEnd = () => cleanup();
         const cleanup = () => {
-          document.removeEventListener('touchmove', onMove);
-          document.removeEventListener('touchend', onEnd);
-          document.removeEventListener('touchcancel', onEnd);
+          el.removeEventListener('pointermove', onMove);
+          el.removeEventListener('pointerup', onEnd);
+          el.removeEventListener('pointercancel', onEnd);
         };
 
-        document.addEventListener('touchmove', onMove, { passive: false });
-        document.addEventListener('touchend', onEnd);
-        document.addEventListener('touchcancel', onEnd);
+        const onMove = (ev) => {
+          if (ev.pointerId !== pointerId || started) return;
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 8) {
+            started = true;
+            cleanup();
+            this._activePointerId = pointerId;
+            this.startDrag(piece, el, ev.clientX, ev.clientY, grabX, grabY);
+          }
+        };
+
+        const onEnd = (ev) => {
+          if (ev.pointerId !== pointerId) return;
+          cleanup();
+        };
+
+        el.addEventListener('pointermove', onMove);
+        el.addEventListener('pointerup', onEnd);
+        el.addEventListener('pointercancel', onEnd);
       }, { passive: false });
 
       el.addEventListener('dblclick', () => {
