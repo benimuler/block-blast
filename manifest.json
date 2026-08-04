@@ -1,0 +1,15 @@
+{
+  "name": "Block Blast Evolved",
+  "short_name": "BlockBlast",
+  "description": "Online multiplayer block puzzle game with cards, tournaments and daily puzzles",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0e17",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "lang": "he",
+  "categories": ["games", "puzzle"]
+}

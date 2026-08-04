@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="description" content="Block Blast Evolved - online multiplayer block puzzle game">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <title>Block Blast Evolved</title>
+  <link rel="stylesheet" href="css/style.css?v=3.12">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Auth Screen -->
+    <section id="screen-auth" class="screen">
+      <div class="auth-container">
+        <h1 class="logo" data-i18n="auth.loginTitle">Welcome Back</h1>
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login" data-i18n="menu.login">Login</button>
+          <button class="auth-tab" data-tab="register" data-i18n="menu.register">Register</button>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <div class="form-group register-only hidden">
+            <label data-i18n="auth.username">Username</label>
+            <input type="text" id="auth-username" autocomplete="username">
+          </div>
+          <div class="form-group register-only hidden">
+            <label data-i18n="auth.displayName">Display Name</label>
+            <input type="text" id="auth-displayName">
+          </div>
+          <div class="form-group">
+            <label data-i18n="auth.email">Email</label>
+            <input type="email" id="auth-email" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label data-i18n="auth.password">Password</label>
+            <input type="password" id="auth-password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" id="auth-submit" data-i18n="auth.loginBtn">Login</button>
+        </form>
+        <button class="btn btn-secondary btn-sm skip-auth" data-i18n="menu.guest">Playing as Guest</button>
+        <p class="auth-error hidden" id="auth-error"></p>
+      </div>
+    </section>
+
+    <!-- Main Menu -->
+    <section id="screen-menu" class="screen active">
+      <div class="menu-top-bar">
+        <button class="btn-icon" data-action="settings" title="Settings">⚙️</button>
+        <div class="user-badge" id="user-badge">
+          <span id="user-avatar">👤</span>
+          <span id="user-name" data-i18n="menu.guest">Guest</span>
+        </div>
+        <button class="btn-icon" data-action="profile" title="Profile">👤</button>
+      </div>
+      <div class="menu-hero">
+        <h1 class="logo"><span data-i18n="app.title">Block Blast</span><span data-i18n="app.subtitle">Evolved</span></h1>
+        <p class="tagline" data-i18n="app.tagline">Block matching · Strategy · Progression</p>
+      </div>
+      <div class="menu-stats" id="menu-stats"></div>
+      <nav class="menu-nav">
+        <button class="btn btn-primary btn-lg" data-action="survival">🎮 <span data-i18n="menu.survival">Survival</span></button>
+        <button class="btn btn-secondary btn-lg" data-action="daily">🧩 <span data-i18n="menu.daily">Daily Puzzle</span></button>
+        <button class="btn btn-accent btn-lg" data-action="multiplayer">⚔️ <span data-i18n="menu.multiplayer">Online Duel</span></button>
+        <button class="btn btn-secondary" data-action="leaderboard">🏆 <span data-i18n="menu.leaderboard">Leaderboard</span></button>
+        <button class="btn btn-secondary" data-action="inventory">🃏 <span data-i18n="menu.inventory">Cards</span></button>
+        <button class="btn btn-secondary" data-action="loadout">⚔️ <span data-i18n="menu.loadout">Loadout</span></button>
+        <button class="btn btn-secondary" data-action="pack">📦 <span data-i18n="menu.pack">Open Pack</span> <span class="badge">50</span></button>
+        <button class="btn btn-secondary" data-action="event-shop">❄️ <span data-i18n="menu.eventShop">Event Shop</span></button>
+        <button class="btn btn-secondary" data-action="achievements">🎖️ <span data-i18n="menu.achievements">Achievements</span></button>
+      </nav>
+      <div class="event-banner" id="event-banner"></div>
+      <div class="online-status" id="online-status"></div>
+    </section>
+
+    <!-- Multiplayer Lobby -->
+    <section id="screen-multiplayer" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="multiplayer.title">Online Multiplayer</h2>
+      </header>
+      <div class="mp-cards">
+        <div class="mp-card" id="mp-duel-card">
+          <h3>⚔️ <span data-i18n="multiplayer.duel">Quick Duel</span></h3>
+          <p data-i18n="multiplayer.duelDesc">3-minute race vs another player</p>
+          <div class="mp-connection" id="mp-connection">
+            <span class="mp-dot" id="mp-dot"></span>
+            <span id="mp-connection-text" data-i18n="multiplayer.connecting">Connecting...</span>
+          </div>
+          <!-- PC: share URL for phone -->
+          <div class="mp-share-url hidden" id="mp-share-box">
+            <p data-i18n="multiplayer.phoneUrl">📱 Open on phone (same WiFi):</p>
+            <div class="mp-url-row">
+              <code id="mp-phone-url">—</code>
+              <button class="btn btn-secondary btn-sm" id="btn-copy-url" data-i18n="multiplayer.copyUrl">Copy</button>
+            </div>
+          </div>
+          <!-- Phone: connect to PC server -->
+          <div class="mp-phone-setup hidden" id="mp-phone-setup">
+            <p class="mp-phone-warn" data-i18n="multiplayer.phoneSetup">Enter your PC IP address:</p>
+            <div class="mp-url-row">
+              <input type="url" id="mp-server-input" class="setting-input" placeholder="http://192.168.1.5:3001">
+              <button class="btn btn-primary btn-sm" id="btn-mp-connect" data-i18n="multiplayer.connect">Connect</button>
+            </div>
+            <p class="mp-test-result" id="mp-test-result"></p>
+          </div>
+          <p class="mp-hint" data-i18n="multiplayer.hint">Press "Find Match" on BOTH devices at the same time</p>
+          <p class="mp-wrong-port hidden" id="mp-wrong-port"></p>
+          <div class="mp-actions" id="mp-actions">
+            <button class="btn btn-primary" id="btn-find-duel" data-i18n="multiplayer.findMatch">Find Match</button>
+            <button class="btn btn-secondary" id="btn-cancel-duel" data-i18n="multiplayer.cancel">Cancel</button>
+          </div>
+          <p class="mp-status hidden" id="duel-status"></p>
+        </div>
+        <div class="mp-card">
+          <h3>🏆 <span data-i18n="multiplayer.tournament">Weekly Tournament</span></h3>
+          <p data-i18n="multiplayer.tournamentDesc">Compete for highest survival score</p>
+          <button class="btn btn-secondary" id="btn-tournament">🏆 <span data-i18n="multiplayer.tournament">Weekly Tournament</span></button>
+        </div>
+      </div>
+      <div id="duel-scores" class="duel-scores hidden"></div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="screen-leaderboard" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="leaderboard.title">Leaderboard</h2>
+      </header>
+      <div class="leaderboard-week" id="leaderboard-week"></div>
+      <div class="leaderboard-rank" id="leaderboard-my-rank"></div>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
+    </section>
+
+    <!-- Profile -->
+    <section id="screen-profile" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="profile.title">Profile</h2>
+      </header>
+      <div class="profile-card" id="profile-card"></div>
+      <div class="profile-stats" id="profile-stats"></div>
+      <div class="profile-trophies" id="profile-trophies"></div>
+      <div class="profile-actions">
+        <button class="btn btn-primary" id="btn-sync" data-i18n="profile.sync">Sync Save</button>
+        <button class="btn btn-secondary" id="btn-login-profile" data-i18n="menu.login">Login</button>
+        <button class="btn btn-secondary hidden" id="btn-logout" data-i18n="menu.logout">Logout</button>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="screen-settings" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="settings.title">Settings</h2>
+      </header>
+      <div class="settings-list">
+        <div class="setting-row">
+          <label data-i18n="settings.language">Language</label>
+          <select id="setting-language" class="setting-select"></select>
+        </div>
+        <div class="setting-row">
+          <label data-i18n="settings.sound">Sound Effects</label>
+          <button class="toggle-btn" id="setting-sound" data-setting="sound">On</button>
+        </div>
+        <div class="setting-row">
+          <label data-i18n="settings.music">Music</label>
+          <button class="toggle-btn" id="setting-music" data-setting="music">On</button>
+        </div>
+        <div class="setting-row">
+          <label data-i18n="settings.theme">Theme</label>
+          <select id="setting-theme" class="setting-select">
+            <option value="dark" data-i18n="settings.themeDark">Dark</option>
+            <option value="light" data-i18n="settings.themeLight">Light</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label data-i18n="settings.showTutorial">Show Tutorial</label>
+          <button class="btn btn-secondary btn-sm" id="btn-show-tutorial" data-i18n="settings.showTutorial">Show</button>
+        </div>
+        <div class="setting-row setting-row-col">
+          <label data-i18n="settings.serverUrl">Server URL (for phone)</label>
+          <input type="url" id="setting-server-url" class="setting-input" placeholder="http://192.168.x.x:3001">
+          <button class="btn btn-secondary btn-sm" id="btn-save-server" data-i18n="settings.saveServer">Save</button>
+        </div>
+      </div>
+      <div class="settings-online" id="settings-online"></div>
+    </section>
+
+    <!-- Achievements -->
+    <section id="screen-achievements" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="achievements.title">Achievements</h2>
+      </header>
+      <div id="achievements-list" class="achievements-list"></div>
+    </section>
+
+    <!-- Game Screen -->
+    <section id="screen-game" class="screen">
+      <header class="game-header">
+        <button class="btn-icon" id="btn-back" data-i18n-title="game.back">←</button>
+        <div class="game-mode-label" id="game-mode-label">Survival</div>
+        <div class="game-header-stats">
+          <div class="stat-pill duel-only hidden"><span data-i18n="multiplayer.opponent">Opponent</span>: <span id="opponent-score">0</span></div>
+          <div class="stat-pill"><span>⭐</span><span id="score-display">0</span></div>
+          <div class="stat-pill"><span>🪙</span><span id="tokens-earned">0</span></div>
+          <div class="stat-pill duel-timer hidden" id="duel-timer">3:00</div>
+        </div>
+      </header>
+      <div class="game-abilities" id="game-abilities"></div>
+      <div class="board-container">
+        <div id="board" class="board"></div>
+        <div id="game-overlay" class="game-overlay hidden">
+          <div class="overlay-content">
+            <h2 id="overlay-title"></h2>
+            <p id="overlay-message"></p>
+            <div class="overlay-actions" id="overlay-actions"></div>
+          </div>
+        </div>
+      </div>
+      <div class="puzzle-info hidden" id="puzzle-info">
+        <span id="puzzle-progress">Move 0 / 0</span>
+      </div>
+      <div class="tray-container"><div id="tray" class="tray"></div></div>
+      <div class="combo-bar hidden" id="combo-bar">
+        <span data-i18n="game.combo">Combo!</span>
+        <span id="combo-count">x2</span>
+      </div>
+    </section>
+
+    <!-- Inventory -->
+    <section id="screen-inventory" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="menu.inventory">Card Collection</h2>
+      </header>
+      <div id="inventory-grid" class="card-grid"></div>
+    </section>
+
+    <!-- Loadout -->
+    <section id="screen-loadout" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="menu.loadout">Loadout</h2>
+      </header>
+      <p class="loadout-hint" data-i18n="loadout.hint">Select up to 3 cards</p>
+      <div id="loadout-slots" class="loadout-slots"></div>
+      <div id="loadout-available" class="card-grid"></div>
+    </section>
+
+    <!-- Pack -->
+    <section id="screen-pack" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="menu.pack">Open Pack</h2>
+      </header>
+      <div class="pack-area">
+        <div id="pack-card" class="pack-card hidden">
+          <div class="pack-card-inner">
+            <div class="pack-card-front">?</div>
+            <div class="pack-card-back"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-lg" id="btn-open-pack" data-i18n="pack.open">Open Pack</button>
+        <div id="pack-result" class="pack-result hidden"></div>
+      </div>
+    </section>
+
+    <!-- Event Shop -->
+    <section id="screen-event-shop" class="screen">
+      <header class="sub-header">
+        <button class="btn-icon back-btn" data-back="menu">←</button>
+        <h2 data-i18n="menu.eventShop">Event Shop ❄️</h2>
+      </header>
+      <div class="event-balance">❄️ <span id="event-token-balance">0</span></div>
+      <div id="event-shop-items" class="shop-grid"></div>
+    </section>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2 data-i18n="tutorial.title">How to Play</h2>
+        <ol class="tutorial-steps">
+          <li data-i18n="tutorial.step1"></li>
+          <li data-i18n="tutorial.step2"></li>
+          <li data-i18n="tutorial.step3"></li>
+          <li data-i18n="tutorial.step4"></li>
+          <li data-i18n="tutorial.step5"></li>
+        </ol>
+        <button class="btn btn-primary btn-lg" id="btn-tutorial-close" data-i18n="tutorial.gotIt">Got it!</button>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+  <script type="module" src="js/main.js?v=3.12"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js?v=3.12').catch(() => {});
+    }
+  </script>
+</body>
+</html>

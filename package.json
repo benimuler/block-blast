@@ -1,0 +1,23 @@
+{
+  "name": "block-blast-evolved",
+  "version": "2.0.0",
+  "description": "Block Blast Evolved - online multiplayer block puzzle game",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "start:prod": "node --env-file=.env server/index.js",
+    "dev": "node --watch server/index.js",
+    "test:puzzles": "node scripts/test-puzzles.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.3"
+  }
+}

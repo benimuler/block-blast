@@ -1,0 +1,17 @@
+# Render.com — free tier (https://render.com)
+# Connect GitHub repo → New Blueprint → select this file
+services:
+  - type: web
+    name: block-blast
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: HOST
+        value: 0.0.0.0
