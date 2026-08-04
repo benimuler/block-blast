@@ -106,6 +106,7 @@ export function addCardToInventory(cardId) {
 
 export function addXP(amount) {
   const save = getSave();
+  const prevLevel = save.level;
   save.xp += amount;
   while (save.xp >= save.level * 100) {
     save.xp -= save.level * 100;
@@ -113,7 +114,7 @@ export function addXP(amount) {
     save.basicTokens += 25;
   }
   saveGame(save);
-  return save;
+  return { save, leveledUp: save.level > prevLevel, newLevel: save.level };
 }
 
 export function getTodayKey() {

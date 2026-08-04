@@ -44,6 +44,16 @@ git push -u origin main
 4. Render יקרא את `render.yaml` ויפרוס אוטומטית
 5. URL: **https://block-blast-062t.onrender.com**
 
+## עדכון גרסה (Deploy)
+
+הקוד ב-GitHub מעודכן, אבל Render לא מושך אוטומטית עד שמחברים repo:
+
+1. [Render Dashboard](https://dashboard.render.com/) → **block-blast**
+2. **Manual Deploy** → **Deploy latest commit** (~3 דק')
+3. או: Settings → Build & Deploy → חבר `benimuler/block-blast` branch `main`
+
+אחרי deploy: **Ctrl+Shift+R** (cache v3.14).
+
 ## הערות חשובות
 
 | נושא | פירוט |

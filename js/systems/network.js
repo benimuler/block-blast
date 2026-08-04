@@ -87,6 +87,7 @@ export async function fetchLanUrls() {
 }
 
 export function isWrongPort() {
+  if (window.location.protocol === 'https:') return false;
   if (!isLocalHost(window.location.hostname)) return false;
   const p = window.location.port;
   return p && p !== '3001';

@@ -9,12 +9,14 @@ const defaults = {
 
 let settings = { ...defaults };
 let audioCtx = null;
+let musicNodes = null;
 
 export function loadSettings() {
   try {
     settings = { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) };
   } catch { /* defaults */ }
   applyTheme();
+  if (settings.music) startMusic();
   return settings;
 }
 
@@ -26,6 +28,10 @@ export function updateSettings(partial) {
   settings = { ...settings, ...partial };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   if (partial.theme) applyTheme();
+  if ('music' in partial) {
+    if (settings.music) startMusic();
+    else stopMusic();
+  }
 }
 
 function applyTheme() {
@@ -39,10 +45,41 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-export function playSound(type) {
-  if (!settings.sound) return;
+function startMusic() {
+  if (!settings.music || musicNodes) return;
   try {
     const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 110;
+    gain.gain.value = 0.04;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    musicNodes = { osc, gain, ctx };
+  } catch { /* no audio */ }
+}
+
+function stopMusic() {
+  if (!musicNodes) return;
+  try {
+    const { osc, gain, ctx } = musicNodes;
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch { /* already stopped */ }
+  musicNodes = null;
+}
+
+export function playSound(type) {
+  if (!settings.sound && !settings.music) return;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    if (settings.music && !musicNodes) startMusic();
+    if (!settings.sound) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);

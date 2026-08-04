@@ -478,6 +478,7 @@ export function renderMenuStats(save, t = (k) => k) {
     <div class="menu-stat"><div class="value">${save.eventTokens}</div><div class="label">❄️ ${t('stat.event')}</div></div>
     <div class="menu-stat"><div class="value">${save.highScore}</div><div class="label">🏆 ${t('stat.highScore')}</div></div>
     <div class="menu-stat"><div class="value">${save.dailyStreak}</div><div class="label">🔥 ${t('stat.streak')}</div></div>
+    <p class="menu-stat-hint">${t('stat.premiumHint')}</p>
   `;
 }
 

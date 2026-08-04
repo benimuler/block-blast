@@ -12,7 +12,7 @@ import { EVENT_SHOP_ITEMS } from './systems/events.js';
 import { initI18n, t, setLang, getLang, getLanguages, applyI18nToDOM, onLangChange } from './i18n/index.js';
 import {
   register, login, logout, isLoggedIn, getUser, syncSave, loadCloudSave,
-  submitTournamentScore, getLeaderboard, checkHealth, getServerStats, unlockAchievement,
+  submitTournamentScore, getLeaderboard, getServerStats, unlockAchievement,
   getAchievements
 } from './systems/auth.js';
 import { MultiplayerClient } from './systems/multiplayer.js';
@@ -63,7 +63,8 @@ class App {
   }
 
   async checkServer() {
-    this.serverOnline = await checkHealth();
+    const health = await testServerConnection();
+    this.serverOnline = health.ok && isServerV3(health);
     const statusEl = document.getElementById('online-status');
     if (statusEl) {
       statusEl.textContent = this.serverOnline
@@ -75,6 +76,11 @@ class App {
         statusEl.textContent = `🟢 ${t('settings.online')}: ${stats.online} | ${stats.totalUsers} ${t('menu.register').toLowerCase()}`;
       }
     }
+  }
+
+  awardXP(amount) {
+    const { leveledUp, newLevel } = addXP(amount);
+    if (leveledUp) showToast(t('game.levelUp', { level: newLevel }));
   }
 
   onLanguageChange() {
@@ -348,7 +354,7 @@ class App {
           addTokens(earned, 'basic');
           if (this.engine.eventTokensEarned > 0) addTokens(this.engine.eventTokensEarned, 'event');
           if (this.engine.score > this.save.highScore) updateSave({ highScore: this.engine.score });
-          addXP(Math.floor(this.engine.score / 10));
+          this.awardXP(Math.floor(this.engine.score / 10));
           showToast(t('game.tokensSaved', { n: earned }));
         }
       }
@@ -396,7 +402,7 @@ class App {
     const eventEarned = this.engine.eventTokensEarned;
     addTokens(earned, 'basic');
     if (eventEarned > 0) addTokens(eventEarned, 'event');
-    addXP(Math.floor(this.engine.score / 10));
+    this.awardXP(Math.floor(this.engine.score / 10));
 
     const save = getSave();
     if (this.engine.score > save.highScore) save.highScore = this.engine.score;
@@ -626,8 +632,23 @@ class App {
     const dot = document.getElementById('mp-dot');
     const text = document.getElementById('mp-connection-text');
     if (!dot || !text) return;
-    dot.className = 'mp-dot ' + (ok ? 'online' : 'offline');
-    text.textContent = ok ? t('multiplayer.verified') : t('multiplayer.disconnected');
+
+    testServerConnection().then(health => {
+      const socketOk = ok ?? this.mp.connected;
+      if (!health.ok) {
+        dot.className = 'mp-dot offline';
+        text.textContent = t('multiplayer.disconnected');
+      } else if (!isServerV3(health)) {
+        dot.className = 'mp-dot offline';
+        text.textContent = t('multiplayer.oldServer');
+      } else if (!socketOk) {
+        dot.className = 'mp-dot offline';
+        text.textContent = t('multiplayer.disconnected');
+      } else {
+        dot.className = 'mp-dot online';
+        text.textContent = t('multiplayer.verified');
+      }
+    });
   }
 
   async startDuelSearch() {

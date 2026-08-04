@@ -10,7 +10,8 @@
     "start": "node server/index.js",
     "start:prod": "node --env-file=.env server/index.js",
     "dev": "node --watch server/index.js",
-    "test:puzzles": "node scripts/test-puzzles.js"
+    "test:puzzles": "node scripts/test-puzzles.js",
+    "test:playtest": "node scripts/playtest.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
