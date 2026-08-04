@@ -27,6 +27,9 @@ export class Renderer {
     this.grabOffsetX = 0;
     this.grabOffsetY = 0;
     this._activePointerId = null;
+    this._isTouch = window.matchMedia('(hover: none)').matches;
+    this._iosFixed = /iPhone|iPad|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     this.inputLocked = false;
     this.onPlace = null;
     this.onRotate = null;
@@ -57,22 +60,27 @@ export class Renderer {
     }
   }
 
-  /** Map touch/pointer coords to layout viewport (position:fixed uses layout viewport). */
-  clientToLayout(clientX, clientY) {
+  /** iOS Safari: fixed coords need visualViewport offset; Android/desktop use clientX/Y as-is. */
+  pointerToFixed(clientX, clientY) {
+    if (!this._iosFixed) return { x: clientX, y: clientY };
     const vv = window.visualViewport;
     if (!vv) return { x: clientX, y: clientY };
-    return {
-      x: clientX + vv.offsetLeft,
-      y: clientY + vv.offsetTop
-    };
+    return { x: clientX + vv.offsetLeft, y: clientY + vv.offsetTop };
   }
 
   getBoardMetrics() {
     const rect = this.boardEl.getBoundingClientRect();
-    const padding = 6;
-    const gap = 3;
-    const inner = Math.min(rect.width, rect.height) - padding * 2;
-    const cellSize = (inner - gap * (GRID_SIZE - 1)) / GRID_SIZE;
+    const style = getComputedStyle(this.boardEl);
+    const padding = parseFloat(style.paddingLeft) || 6;
+    const gap = parseFloat(style.gap) || parseFloat(style.rowGap) || 3;
+    const sample = this.boardEl.querySelector('.cell');
+    let cellSize;
+    if (sample) {
+      cellSize = sample.getBoundingClientRect().width;
+    } else {
+      const inner = Math.min(rect.width, rect.height) - padding * 2;
+      cellSize = (inner - gap * (GRID_SIZE - 1)) / GRID_SIZE;
+    }
     return { rect, padding, gap, cellSize };
   }
 
@@ -153,6 +161,16 @@ export class Renderer {
     document.addEventListener('pointerup', this._onPointerUp);
     document.addEventListener('pointercancel', this._onPointerCancel);
     window.addEventListener('blur', this._onDragBlur);
+    if (this._iosFixed && window.visualViewport) {
+      this._onVvChange = () => {
+        if (this.pendingMove) {
+          const { clientX, clientY } = this.pendingMove;
+          this.moveDragGhost(clientX, clientY);
+        }
+      };
+      window.visualViewport.addEventListener('scroll', this._onVvChange);
+      window.visualViewport.addEventListener('resize', this._onVvChange);
+    }
   }
 
   cleanupDragListeners() {
@@ -160,6 +178,11 @@ export class Renderer {
     document.removeEventListener('pointerup', this._onPointerUp);
     document.removeEventListener('pointercancel', this._onPointerCancel);
     window.removeEventListener('blur', this._onDragBlur);
+    if (this._onVvChange && window.visualViewport) {
+      window.visualViewport.removeEventListener('scroll', this._onVvChange);
+      window.visualViewport.removeEventListener('resize', this._onVvChange);
+      this._onVvChange = null;
+    }
     if (this._rafId) {
       cancelAnimationFrame(this._rafId);
       this._rafId = null;
@@ -205,6 +228,7 @@ export class Renderer {
     this.dragGhost.innerHTML = '';
     this.dragGhost.appendChild(this.createPieceGrid(piece, ghostCell, gap));
     this.dragGhost.classList.remove('hidden');
+    document.body.classList.add('dragging-piece');
     this.moveDragGhost(clientX, clientY);
     if (this._activePointerId != null && sourceEl?.setPointerCapture) {
       try { sourceEl.setPointerCapture(this._activePointerId); } catch { /* already captured */ }
@@ -214,10 +238,9 @@ export class Renderer {
 
   moveDragGhost(clientX, clientY) {
     if (!this.dragGhost) return;
-    const { x: lx, y: ly } = this.clientToLayout(clientX, clientY);
-    const x = lx - this.grabOffsetX;
-    const y = ly - this.grabOffsetY;
-    this.dragGhost.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    const { x, y } = this.pointerToFixed(clientX, clientY);
+    this.dragGhost.style.left = `${x - this.grabOffsetX}px`;
+    this.dragGhost.style.top = `${y - this.grabOffsetY}px`;
   }
 
   endDrag() {
@@ -232,9 +255,12 @@ export class Renderer {
       this.dragSourceEl = null;
     }
     this._activePointerId = null;
+    document.body.classList.remove('dragging-piece');
     if (this.dragGhost) {
       this.dragGhost.classList.add('hidden');
       this.dragGhost.innerHTML = '';
+      this.dragGhost.style.left = '';
+      this.dragGhost.style.top = '';
     }
     this.pendingMove = null;
     this.grabOffsetX = 0;
@@ -304,15 +330,24 @@ export class Renderer {
       el._previewFn = (row, col) => getPreviewForPiece(piece, row, col);
 
       el.addEventListener('pointerdown', e => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || this.inputLocked) return;
         e.preventDefault();
+        const pointerId = e.pointerId;
+        try { el.setPointerCapture(pointerId); } catch { /* ok */ }
+
         const gridEl = el.querySelector('.piece-grid');
         const gridRect = gridEl?.getBoundingClientRect();
         const grabX = gridRect ? e.clientX - gridRect.left : null;
         const grabY = gridRect ? e.clientY - gridRect.top : null;
+
+        if (this._isTouch) {
+          this._activePointerId = pointerId;
+          this.startDrag(piece, el, e.clientX, e.clientY, grabX, grabY);
+          return;
+        }
+
         const startX = e.clientX;
         const startY = e.clientY;
-        const pointerId = e.pointerId;
         let started = false;
 
         const cleanup = () => {
@@ -323,7 +358,7 @@ export class Renderer {
 
         const onMove = (ev) => {
           if (ev.pointerId !== pointerId || started) return;
-          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 8) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
             started = true;
             cleanup();
             this._activePointerId = pointerId;
@@ -334,6 +369,7 @@ export class Renderer {
         const onEnd = (ev) => {
           if (ev.pointerId !== pointerId) return;
           cleanup();
+          try { el.releasePointerCapture(pointerId); } catch { /* ok */ }
         };
 
         el.addEventListener('pointermove', onMove);

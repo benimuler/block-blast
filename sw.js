@@ -1,4 +1,4 @@
-const CACHE = 'blockblast-v3.16';
+const CACHE = 'blockblast-v3.18';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
