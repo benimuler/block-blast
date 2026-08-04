@@ -142,6 +142,7 @@ export class GameEngine {
     this.score = prev.score;
     this.combo = prev.combo;
     this.abilities.undoUsed = true;
+    this.gameOver = false;
     this.notify();
     return true;
   }

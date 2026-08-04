@@ -249,7 +249,7 @@ export function setupMultiplayer(io) {
       const room = activeRooms.get(roomId);
       if (!room?.started) return;
       const player = room.players.find(p => p.socketId === socket.id);
-      if (player) {
+      if (player && !player.finished) {
         player.score = score;
         broadcastScores(room, io);
       }

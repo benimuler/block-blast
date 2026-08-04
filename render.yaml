@@ -15,3 +15,5 @@ services:
         generateValue: true
       - key: HOST
         value: 0.0.0.0
+      - key: PUBLIC_URL
+        value: https://block-blast-062t.onrender.com

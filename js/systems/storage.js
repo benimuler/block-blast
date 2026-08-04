@@ -99,10 +99,8 @@ export function spendTokens(amount, type = 'basic') {
 
 export function addCardToInventory(cardId) {
   const save = getSave();
-  if (!save.inventory.includes(cardId)) {
-    save.inventory.push(cardId);
-    saveGame(save);
-  }
+  save.inventory.push(cardId);
+  saveGame(save);
   return save;
 }
 
@@ -119,16 +117,29 @@ export function addXP(amount) {
 }
 
 export function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseLocalDateKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function daysBetween(fromKey, toKey) {
+  const from = parseLocalDateKey(fromKey);
+  const to = parseLocalDateKey(toKey);
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
 }
 
 export function checkDailyStreak() {
   const save = getSave();
   const today = getTodayKey();
   if (save.lastDailyDate && save.lastDailyDate !== today) {
-    const last = new Date(save.lastDailyDate);
-    const now = new Date(today);
-    const diff = (now - last) / (1000 * 60 * 60 * 24);
+    const diff = daysBetween(save.lastDailyDate, today);
     if (diff > 1) {
       save.dailyStreak = 0;
     }
@@ -143,10 +154,8 @@ export function completeDailyPuzzle() {
   const today = getTodayKey();
 
   if (save.lastDailyDate !== today) {
-    const last = save.lastDailyDate ? new Date(save.lastDailyDate) : null;
-    const now = new Date(today);
-    if (last) {
-      const diff = (now - last) / (1000 * 60 * 60 * 24);
+    if (save.lastDailyDate) {
+      const diff = daysBetween(save.lastDailyDate, today);
       save.dailyStreak = diff === 1 ? save.dailyStreak + 1 : 1;
     } else {
       save.dailyStreak = 1;

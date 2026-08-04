@@ -251,6 +251,20 @@ body {
   touch-action: none;
 }
 
+.board.skin-frost {
+  background: linear-gradient(145deg, #0c4a6e 0%, #164e63 50%, #0e7490 100%);
+  border-color: #67e8f9;
+  box-shadow: 0 0 24px rgba(103, 232, 249, 0.25);
+}
+
+.board.skin-frost .cell {
+  background: rgba(224, 242, 254, 0.12);
+}
+
+.board.skin-frost .cell.filled {
+  box-shadow: inset 0 -3px 0 rgba(8, 47, 73, 0.4), 0 2px 8px rgba(103, 232, 249, 0.2);
+}
+
 .cell {
   background: var(--cell-empty);
   border-radius: 4px;

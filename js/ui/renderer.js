@@ -405,7 +405,10 @@ export class Renderer {
   renderPuzzleInfo(state, mode) {
     if (mode === 'puzzle') {
       this.puzzleInfo.classList.remove('hidden');
-      this.puzzleProgress.textContent = `${state.puzzleMoveIndex} / ${state.puzzleTotalMoves}`;
+      const tr = typeof window !== 'undefined' && window.__t ? window.__t : null;
+      this.puzzleProgress.textContent = tr
+        ? tr('game.move', { current: state.puzzleMoveIndex, total: state.puzzleTotalMoves })
+        : `${state.puzzleMoveIndex} / ${state.puzzleTotalMoves}`;
     } else {
       this.puzzleInfo.classList.add('hidden');
     }

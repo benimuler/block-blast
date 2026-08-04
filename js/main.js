@@ -263,6 +263,7 @@ class App {
   }
 
   updateGameUI() {
+    this.applyBoardCosmetics();
     this.renderer.renderBoard(this.engine.board);
     this.renderer.renderTray(this.engine.pieces, (piece, row, col) =>
       this.engine.getPreviewCells(piece, row, col)
@@ -505,6 +506,13 @@ class App {
 
   async syncToCloud() {
     try { await syncSave(getSave()); } catch { /* offline */ }
+  }
+
+  applyBoardCosmetics() {
+    const board = document.getElementById('board');
+    if (!board) return;
+    const save = getSave();
+    board.classList.toggle('skin-frost', save.ownedCosmetics?.includes('skin_frost_board'));
   }
 
   setupMultiplayer() {
@@ -809,9 +817,15 @@ class App {
       if (left <= 0) {
         clearInterval(this.duelTimer);
         this.duelTimer = null;
+        this.inputLocked = true;
+        this.renderer.inputLocked = true;
         if (!this.duelFinished) {
           this.duelFinished = true;
           this.mp.finishDuel(this.engine.score);
+        }
+        if (!this.engine.gameOver) {
+          this.engine.gameOver = true;
+          this.handleGameOver();
         }
       }
     }, 500);

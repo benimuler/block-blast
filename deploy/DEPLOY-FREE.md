@@ -1,5 +1,22 @@
 # פריסה חינמית — Render.com
 
+## דרך מהירה (מומלץ)
+
+בטרמינל PowerShell מתוך תיקיית הפרויקט:
+
+```powershell
+.\deploy\push-to-github.ps1
+```
+
+הסקריפט:
+1. מתחבר ל-GitHub (חלון דפדפן — פעם אחת)
+2. יוצר repo `block-blast` ודוחף את הקוד
+3. פותח את Render Blueprint אוטומטית
+
+ב-Render: התחבר → **Apply** → המתן ~5 דקות → קבל URL.
+
+---
+
 ## מה מוכן
 - `render.yaml` — הגדרות Blueprint ל-Render (חינמי)
 - השרת עובד עם HTTPS + Socket.io על Render
@@ -25,7 +42,7 @@ git push -u origin main
 2. **New +** → **Blueprint**
 3. חבר את repo `block-blast`
 4. Render יקרא את `render.yaml` ויפרוס אוטומטית
-5. URL יהיה: `https://block-blast-xxxx.onrender.com`
+5. URL: **https://block-blast-062t.onrender.com**
 
 ## הערות חשובות
 
@@ -50,4 +67,4 @@ git push -u origin main
 - `HOST=0.0.0.0`
 
 אחרי deploy, הוסף ב-Render Dashboard:
-- `PUBLIC_URL` = ה-URL המלא (למשל `https://block-blast-xxxx.onrender.com`)
+- `PUBLIC_URL` = `https://block-blast-062t.onrender.com`
