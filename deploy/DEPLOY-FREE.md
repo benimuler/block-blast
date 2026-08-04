@@ -46,13 +46,22 @@ git push -u origin main
 
 ## עדכון גרסה (Deploy)
 
-הקוד ב-GitHub מעודכן, אבל Render לא מושך אוטומטית עד שמחברים repo:
+**Render עדיין על v3.12** — GitHub Actions רץ אבל **לא deploy** כי חסר Deploy Hook.
 
-1. [Render Dashboard](https://dashboard.render.com/) → **block-blast**
-2. **Manual Deploy** → **Deploy latest commit** (~3 דק')
-3. או: Settings → Build & Deploy → חבר `benimuler/block-blast` branch `main`
+### Deploy אוטומטי (פעם אחת, 2 דק')
 
-אחרי deploy: **Ctrl+Shift+R** (cache v3.14).
+1. [Render Dashboard](https://dashboard.render.com/) → **block-blast** → **Settings** → **Deploy Hook** → Create → העתק URL
+2. בטרמינל:
+```powershell
+gh secret set RENDER_DEPLOY_HOOK --repo benimuler/block-blast
+```
+(הדבק את ה-URL כשיתבקש)
+3. מעכשיו כל `git push` ל-main מפעיל deploy אוטומטי
+
+### Deploy ידני (מיידי)
+
+1. Render Dashboard → **block-blast** → **Manual Deploy** → **Deploy latest commit**
+2. **Ctrl+Shift+R** (cache v3.16)
 
 ## הערות חשובות
 

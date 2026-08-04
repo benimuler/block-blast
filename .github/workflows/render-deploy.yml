@@ -13,7 +13,8 @@ jobs:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "RENDER_DEPLOY_HOOK secret not set — skipping"
-            exit 0
+            echo "::error::RENDER_DEPLOY_HOOK secret not set — Render was NOT deployed. See deploy/DEPLOY-FREE.md"
+            exit 1
           fi
           curl -fsSL -X POST "$HOOK"
+          echo "Render deploy triggered."
