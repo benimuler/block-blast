@@ -4,14 +4,28 @@ export function isMobileDevice() {
     || (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
 }
 
+/** Native Capacitor app (Google Play) */
+export function isNativeApp() {
+  return typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.();
+}
+
+const NATIVE_SERVER = typeof window !== 'undefined' && window.__BLOCKBLAST_SERVER__;
+
 function isLocalHost(h) {
   return !h || h === 'localhost' || h === '127.0.0.1';
 }
 
 /** Server origin for API + Socket.io */
 export function getServerOrigin() {
+  if (NATIVE_SERVER) return String(NATIVE_SERVER).replace(/\/$/, '');
+
   const { protocol, hostname, port } = window.location;
   const origin = window.location.origin.replace(/\/$/, '');
+
+  // Capacitor local WebView (capacitor:// or https://localhost)
+  if (isNativeApp()) {
+    return 'https://block-blast-062t.onrender.com';
+  }
 
   // Cloud / public host (Render, domain, LAN IP on :3001)
   if (!isLocalHost(hostname)) {

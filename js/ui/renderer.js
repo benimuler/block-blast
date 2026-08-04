@@ -468,6 +468,12 @@ export function showToast(message) {
 export function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(`screen-${screenId}`)?.classList.add('active');
+  onScreenChange?.(screenId);
+}
+
+let onScreenChange = null;
+export function setScreenChangeHandler(fn) {
+  onScreenChange = fn;
 }
 
 export function renderMenuStats(save, t = (k) => k) {

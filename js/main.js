@@ -1,6 +1,6 @@
 import { GameEngine } from './game/engine.js';
 import {
-  Renderer, showScreen, showToast, renderMenuStats, renderEventBanner
+  Renderer, showScreen, showToast, renderMenuStats, renderEventBanner, setScreenChangeHandler
 } from './ui/renderer.js';
 import {
   getSave, updateSave, addTokens, spendTokens, addCardToInventory,
@@ -20,6 +20,7 @@ import { getPlayerName, getServerOrigin, saveServerOrigin, isMobileDevice, testS
 import { ACHIEVEMENTS, checkAchievements, getLocalAchievements, mergeAchievements } from './systems/achievements.js';
 import { TROPHIES, checkTrophies, recordDuelResult, getWinRate } from './systems/trophies.js';
 import { loadSettings, getSettings, updateSettings, playSound, shouldShowTutorial, markTutorialSeen } from './systems/settings.js';
+import { initAds, showBanner, hideBanner, showInterstitialAfterGame, isNativeApp } from './systems/ads.js';
 
 class App {
   constructor() {
@@ -53,13 +54,29 @@ class App {
     this.setupProfile();
     this.setupTutorial();
     this.setupNavigation();
+    this.setupAds();
 
     onLangChange(() => this.onLanguageChange());
     this.checkServer();
     this.refreshMenu();
     applyI18nToDOM();
+    this.initMobileAds();
 
     if (shouldShowTutorial()) this.showTutorial();
+  }
+
+  setupAds() {
+    setScreenChangeHandler((screenId) => {
+      if (!isNativeApp()) return;
+      if (screenId === 'game') hideBanner();
+      else showBanner();
+    });
+  }
+
+  async initMobileAds() {
+    if (!isNativeApp()) return;
+    await initAds();
+    showBanner();
   }
 
   async checkServer() {
@@ -402,6 +419,7 @@ class App {
 
   async handleGameOver() {
     playSound('lose');
+    if (isNativeApp()) hideBanner();
     const earned = this.engine.tokensEarned;
     const eventEarned = this.engine.eventTokensEarned;
     addTokens(earned, 'basic');
@@ -441,6 +459,7 @@ class App {
         `${t('game.score')}: ${this.engine.score} — ${t('multiplayer.waitingForResult')}`,
         []
       );
+      showInterstitialAfterGame();
       return;
     }
 
@@ -480,6 +499,7 @@ class App {
       actions
     );
 
+    showInterstitialAfterGame();
     if (isLoggedIn()) this.syncToCloud();
   }
 

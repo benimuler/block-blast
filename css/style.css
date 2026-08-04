@@ -1209,3 +1209,12 @@ body.duel-mode .game-header-stats {
   }
 }
 
+/* AdMob banner space (native Android) */
+body.has-ad-banner #app {
+  padding-bottom: max(52px, env(safe-area-inset-bottom));
+}
+
+body.has-ad-banner .screen.active {
+  max-height: calc(100dvh - 52px);
+}
+

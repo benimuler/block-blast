@@ -3,3 +3,12 @@ server/data/
 .env
 *.log
 .DS_Store
+
+# Capacitor / Android
+www/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.keystore
+!android/app/src/main/**/*.keystore

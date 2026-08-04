@@ -6,6 +6,12 @@
 
 **https://block-blast-062t.onrender.com**
 
+## Google Play + AdMob
+
+- מדריך מלא: [`deploy/GOOGLE-PLAY.md`](deploy/GOOGLE-PLAY.md)
+- בניית Android: `npm run build:android` → `npm run android:open`
+- Package: `com.benimuler.blockblast`
+
 ## התקנה והרצה
 
 ```bash

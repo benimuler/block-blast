@@ -13,14 +13,25 @@
     "test:puzzles": "node scripts/test-puzzles.js",
     "test:playtest": "node scripts/playtest.js",
     "test:sim": "node scripts/sim-play.js --loops=100",
-    "test:all": "npm run test:playtest && npm run test:puzzles && npm run test:sim"
+    "test:all": "npm run test:playtest && npm run test:puzzles && npm run test:sim",
+    "build:mobile": "node scripts/build-mobile.js",
+    "cap:sync": "npm run build:mobile && npx cap sync android",
+    "build:android": "npm run cap:sync",
+    "android:open": "npx cap open android",
+    "android:run": "npm run cap:sync && npx cap run android"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.0.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.8.1",
     "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
   }
 }

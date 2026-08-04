@@ -1,0 +1,14 @@
+{
+  "appId": "com.benimuler.blockblast",
+  "appName": "Block Blast Evolved",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0f0e17"
+  },
+  "plugins": {
+    "AdMob": {
+      "appId": "ca-app-pub-3940256099942544~3347511713"
+    }
+  }
+}
