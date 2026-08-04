@@ -87,6 +87,7 @@ export class MultiplayerClient {
       this.socketId = this.socket.id;
       this._auth();
       this.onConnectChange?.(true);
+      this._tryRejoinDuel();
     });
 
     this.socket.on('disconnect', () => {
@@ -113,6 +114,9 @@ export class MultiplayerClient {
 
     this.socket.on('duel_start', (data) => {
       this.roomId = data.roomId;
+      if (data.roomId) {
+        try { sessionStorage.setItem('blockblast_duel_room', data.roomId); } catch { /* private mode */ }
+      }
       this.onStart?.(data);
     });
 
@@ -123,8 +127,34 @@ export class MultiplayerClient {
     });
 
     this.socket.on('duel_update', (data) => this.onUpdate?.(data));
-    this.socket.on('duel_end', (data) => { this.roomId = null; this.onEnd?.(data); });
-    this.socket.on('duel_opponent_left', () => { this.roomId = null; this.onOpponentLeft?.(); });
+    this.socket.on('duel_end', (data) => {
+      this.roomId = null;
+      try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
+      this.onEnd?.(data);
+    });
+    this.socket.on('duel_opponent_left', () => {
+      this.roomId = null;
+      try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
+      this.onOpponentLeft?.();
+    });
+  }
+
+  _tryRejoinDuel() {
+    let roomId = null;
+    try { roomId = sessionStorage.getItem('blockblast_duel_room'); } catch { /* ignore */ }
+    if (!roomId || !this.socket?.connected) return;
+    this.socket.emit('rejoin_duel', { roomId, username: getPlayerName() }, (ack) => {
+      if (!ack?.ok) {
+        try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
+        return;
+      }
+      this.roomId = roomId;
+    });
+  }
+
+  clearDuelSession() {
+    this.roomId = null;
+    try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
   }
 
   sendReady(roomId) {
@@ -156,6 +186,7 @@ export class MultiplayerClient {
 
   cancelDuel() {
     this.isSearching = false;
+    this.clearDuelSession();
     if (this.socket?.connected) this.socket.emit('cancel_duel');
     else this.onCancelled?.('cancelled');
   }

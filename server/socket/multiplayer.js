@@ -1,6 +1,7 @@
 import dbApi from '../db.js';
 
 const DUEL_DURATION = 180000;
+const RECONNECT_GRACE_MS = 45000;
 const waitingQueue = [];
 const activeRooms = new Map();
 const socketRooms = new Map();
@@ -31,12 +32,49 @@ function broadcastQueue(io) {
   }
 }
 
+function clearReconnectTimer(player) {
+  if (player.reconnectTimer) {
+    clearTimeout(player.reconnectTimer);
+    player.reconnectTimer = null;
+  }
+}
+
+function forfeitDisconnectedPlayer(roomId, io, room, leaverSocketId) {
+  room.players.forEach(p => {
+    clearReconnectTimer(p);
+    if (p.socketId !== leaverSocketId) {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s?.connected) io.to(p.socketId).emit('duel_opponent_left', { reason: 'forfeit' });
+    }
+    socketRooms.delete(p.socketId);
+  });
+  clearTimeout(room.timer);
+  activeRooms.delete(roomId);
+}
+
+function handlePlayerDisconnect(roomId, io, room, socketId) {
+  const player = room.players.find(p => p.socketId === socketId);
+  if (!player) return;
+
+  clearReconnectTimer(player);
+  player.disconnectedAt = Date.now();
+  socketRooms.delete(socketId);
+
+  player.reconnectTimer = setTimeout(() => {
+    const live = activeRooms.get(roomId);
+    if (!live || live !== room) return;
+    console.log(`[MP] forfeit (no reconnect): ${player.username} in ${roomId}`);
+    forfeitDisconnectedPlayer(roomId, io, room, socketId);
+  }, RECONNECT_GRACE_MS);
+}
+
 function cancelRoom(roomId, io, reason = 'cancelled') {
   const room = activeRooms.get(roomId);
   if (!room) return;
   clearTimeout(room.readyTimer);
   clearTimeout(room.timer);
   room.players.forEach(p => {
+    clearReconnectTimer(p);
     io.to(p.socketId).emit('duel_cancelled', { reason });
     socketRooms.delete(p.socketId);
   });
@@ -48,6 +86,7 @@ function startGame(roomId, io) {
   if (!room || room.started) return;
 
   const allAlive = room.players.every(p => {
+    if (p.disconnectedAt) return false;
     const s = io.sockets.sockets.get(p.socketId);
     return s?.connected;
   });
@@ -114,8 +153,8 @@ function tryMatch(io, socket, playerInfo, ack) {
   const room = {
     id: roomId,
     players: [
-      { socketId: opponent.id, username: opponent.username, userId: opponent.userId, score: 0, finished: false, ready: false },
-      { socketId: socket.id, username: playerInfo.username, userId: playerInfo.userId, score: 0, finished: false, ready: false }
+      { socketId: opponent.id, username: opponent.username, userId: opponent.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null },
+      { socketId: socket.id, username: playerInfo.username, userId: playerInfo.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null }
     ],
     started: false,
     timer: null,
@@ -229,6 +268,43 @@ export function setupMultiplayer(io) {
       }
     });
 
+    socket.on('rejoin_duel', ({ roomId, username }, ack) => {
+      const room = activeRooms.get(roomId);
+      const name = (username || playerInfo.username || '').trim();
+      if (!room?.started || !name) {
+        ack?.({ ok: false, error: 'no_room' });
+        return;
+      }
+
+      const player = room.players.find(p => p.username === name);
+      if (!player) {
+        ack?.({ ok: false, error: 'not_in_room' });
+        return;
+      }
+
+      clearReconnectTimer(player);
+      player.disconnectedAt = null;
+      socketRooms.delete(player.socketId);
+      player.socketId = socket.id;
+      socketRooms.set(socket.id, roomId);
+      playerInfo.username = name;
+
+      const opp = room.players.find(x => x.username !== name);
+      const duration = Math.max(0, DUEL_DURATION - (Date.now() - room.startTime));
+      io.to(socket.id).emit('duel_start', {
+        roomId,
+        opponent: opp?.username || '?',
+        duration,
+        rejoin: true
+      });
+      io.to(socket.id).emit('duel_update', {
+        scores: room.players.map(p => ({ username: p.username, score: p.score, finished: p.finished }))
+      });
+
+      console.log(`[MP] rejoin: ${name} → ${roomId}`);
+      ack?.({ ok: true, duration });
+    });
+
     socket.on('cancel_duel', () => {
       const qIdx = waitingQueue.findIndex(e => e.id === socket.id);
       if (qIdx >= 0) waitingQueue.splice(qIdx, 1);
@@ -277,15 +353,7 @@ export function setupMultiplayer(io) {
           if (!room.started) {
             cancelRoom(roomId, io, 'opponent_left');
           } else {
-            room.players.forEach(p => {
-              if (p.socketId !== socket.id) {
-                const s = io.sockets.sockets.get(p.socketId);
-                if (s?.connected) io.to(p.socketId).emit('duel_opponent_left');
-              }
-            });
-            clearTimeout(room.timer);
-            activeRooms.delete(roomId);
-            room.players.forEach(p => socketRooms.delete(p.socketId));
+            handlePlayerDisconnect(roomId, io, room, socket.id);
           }
         }
       }
@@ -329,6 +397,7 @@ function endDuel(roomId, io) {
   };
 
   room.players.forEach(p => {
+    clearReconnectTimer(p);
     const s = io.sockets.sockets.get(p.socketId);
     if (s?.connected) io.to(p.socketId).emit('duel_end', endPayload);
     socketRooms.delete(p.socketId);

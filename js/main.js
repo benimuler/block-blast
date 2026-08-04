@@ -296,6 +296,10 @@ class App {
         total: this.engine.puzzleTotalMoves
       });
     }
+
+    if (this.currentMode === 'survival' && !this.engine.gameOver && !this.inputLocked) {
+      this.engine.checkSurvivalEnd();
+    }
   }
 
   setupMenu() {
@@ -425,13 +429,15 @@ class App {
     this.notifyTrophies(newTrophies);
 
     if (this.isDuel) {
+      this.inputLocked = true;
+      this.renderer.inputLocked = true;
       if (!this.duelFinished) {
         this.duelFinished = true;
         this.duelState = 'idle';
         this.mp.finishDuel(this.engine.score);
       }
       this.renderer.showOverlay(
-        t('game.gameOver'),
+        t('game.noMoves'),
         `${t('game.score')}: ${this.engine.score} — ${t('multiplayer.waitingForResult')}`,
         []
       );
@@ -556,6 +562,12 @@ class App {
 
     // Both players ready — START the game
     this.mp.onStart = (data) => {
+      if (this.duelState === 'playing' && this.mp.roomId === data.roomId && data.rejoin) {
+        this.duelEndTime = Date.now() + data.duration;
+        this.mp.roomId = data.roomId;
+        showToast(t('multiplayer.reconnected'));
+        return;
+      }
       if (this.duelState === 'playing' && this.mp.roomId === data.roomId) return;
       this.clearDuelStartWatchdog();
       this.beginDuelGame(data);
@@ -580,6 +592,7 @@ class App {
       if (this.duelTimer) clearInterval(this.duelTimer);
       document.body.classList.remove('duel-mode');
       this.isDuel = false;
+      this.mp.clearDuelSession();
       this.renderer.hideOverlay();
       showToast(t('multiplayer.opponentLeft'));
       this.renderer.showOverlay(
@@ -797,6 +810,7 @@ class App {
     document.body.classList.remove('duel-mode');
     this.isDuel = false;
     this.duelState = 'idle';
+    this.mp.clearDuelSession();
 
     const me = getPlayerName();
     const myScore = data.scores.find(s => s.username === me)?.score ?? this.engine.score;
