@@ -1,10 +1,31 @@
 import dbApi from '../db.js';
 
-const DUEL_DURATION = 180000;
+const DUEL_VARIANTS = {
+  blitz: { durationMs: 180000, sudden: false, mirror: false, attack: false, shrink: false },
+  mirror: { durationMs: 180000, sudden: false, mirror: true, attack: false, shrink: false },
+  attack: { durationMs: 180000, sudden: false, mirror: false, attack: true, shrink: false },
+  shrink: { durationMs: 180000, sudden: false, mirror: false, attack: false, shrink: true, shrinkIntervalMs: 45000 },
+  sudden: { durationMs: 300000, sudden: true, mirror: false, attack: false, shrink: false }
+};
+
 const RECONNECT_GRACE_MS = 45000;
 const waitingQueue = [];
 const activeRooms = new Map();
 const socketRooms = new Map();
+
+function getVariantConfig(id) {
+  return DUEL_VARIANTS[id] || DUEL_VARIANTS.blitz;
+}
+
+function hashSeed(a, b, roomId) {
+  let h = 2166136261;
+  const s = `${a}|${b}|${roomId}`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
 
 function isValidUsername(name) {
   return typeof name === 'string' && name.length > 1 && name !== 'Guest';
@@ -39,17 +60,75 @@ function clearReconnectTimer(player) {
   }
 }
 
-function forfeitDisconnectedPlayer(roomId, io, room, leaverSocketId) {
+function buildStartPayload(room, playerSocketId) {
+  const cfg = getVariantConfig(room.variant);
+  const opp = room.players.find(x => x.socketId !== playerSocketId);
+  const duration = room.started
+    ? Math.max(0, cfg.durationMs - (Date.now() - room.startTime))
+    : cfg.durationMs;
+  return {
+    roomId: room.id,
+    opponent: opp?.username || '?',
+    duration,
+    variant: room.variant,
+    seed: room.seed,
+    shrinkIntervalMs: cfg.shrinkIntervalMs || null,
+    sudden: !!cfg.sudden
+  };
+}
+
+function endDuel(roomId, io, options = {}) {
+  const room = activeRooms.get(roomId);
+  if (!room || room.ended) return;
+  room.ended = true;
+
+  clearTimeout(room.timer);
+  clearTimeout(room.readyTimer);
+  const [p1, p2] = room.players;
+
+  let winnerUsername = options.winnerUsername ?? null;
+  if (!winnerUsername && !options.draw) {
+    if (p1.score > p2.score) winnerUsername = p1.username;
+    else if (p2.score > p1.score) winnerUsername = p2.username;
+  }
+
+  const winnerId = winnerUsername
+    ? room.players.find(p => p.username === winnerUsername)?.userId ?? null
+    : null;
+
+  if (p1.userId && p2.userId) {
+    dbApi.saveDuel(roomId, winnerId, p1.userId, p2.userId, p1.score, p2.score);
+  }
+
+  const endPayload = {
+    scores: room.players.map(p => ({ username: p.username, score: p.score })),
+    winner: winnerUsername,
+    draw: options.draw ?? (p1.score === p2.score && !winnerUsername),
+    variant: room.variant,
+    reason: options.reason || 'normal'
+  };
+
   room.players.forEach(p => {
     clearReconnectTimer(p);
-    if (p.socketId !== leaverSocketId) {
-      const s = io.sockets.sockets.get(p.socketId);
-      if (s?.connected) io.to(p.socketId).emit('duel_opponent_left', { reason: 'forfeit' });
-    }
+    const s = io.sockets.sockets.get(p.socketId);
+    if (s?.connected) io.to(p.socketId).emit('duel_end', endPayload);
     socketRooms.delete(p.socketId);
   });
-  clearTimeout(room.timer);
+
   activeRooms.delete(roomId);
+}
+
+function forfeitDisconnectedPlayer(roomId, io, room, leaverSocketId) {
+  const leaver = room.players.find(p => p.socketId === leaverSocketId);
+  const winner = room.players.find(p => p.socketId !== leaverSocketId);
+  room.players.forEach(p => clearReconnectTimer(p));
+  if (winner) {
+    endDuel(roomId, io, { winnerUsername: winner.username, reason: 'forfeit' });
+  } else {
+    clearTimeout(room.timer);
+    activeRooms.delete(roomId);
+  }
+  console.log(`[MP] forfeit: ${leaver?.username} left ${roomId}`);
 }
 
 function handlePlayerDisconnect(roomId, io, room, socketId) {
@@ -62,7 +141,7 @@ function handlePlayerDisconnect(roomId, io, room, socketId) {
 
   player.reconnectTimer = setTimeout(() => {
     const live = activeRooms.get(roomId);
-    if (!live || live !== room) return;
+    if (!live || live !== room || live.ended) return;
     console.log(`[MP] forfeit (no reconnect): ${player.username} in ${roomId}`);
     forfeitDisconnectedPlayer(roomId, io, room, socketId);
   }, RECONNECT_GRACE_MS);
@@ -95,42 +174,41 @@ function startGame(roomId, io) {
     return;
   }
 
+  const cfg = getVariantConfig(room.variant);
   room.started = true;
   room.startTime = Date.now();
+  room.seed = hashSeed(room.players[0].username, room.players[1].username, roomId);
 
   room.players.forEach(p => {
-    const opp = room.players.find(x => x.socketId !== p.socketId);
-    io.to(p.socketId).emit('duel_start', {
-      roomId,
-      opponent: opp?.username || '?',
-      duration: DUEL_DURATION
-    });
+    io.to(p.socketId).emit('duel_start', buildStartPayload(room, p.socketId));
   });
 
-  room.timer = setTimeout(() => endDuel(roomId, io), DUEL_DURATION);
-  console.log(`[MP] START: ${room.players.map(p => p.username).join(' vs ')}`);
+  room.timer = setTimeout(() => endDuel(roomId, io, { reason: 'timeout' }), cfg.durationMs);
+  console.log(`[MP] START ${room.variant}: ${room.players.map(p => p.username).join(' vs ')}`);
 }
 
-function tryMatch(io, socket, playerInfo, ack) {
+function tryMatch(io, socket, playerInfo, variant, ack) {
   purgeQueue(io);
 
   const opponent = waitingQueue.find(e =>
     e.id !== socket.id &&
-    e.username !== playerInfo.username
+    e.username !== playerInfo.username &&
+    e.variant === variant
   );
 
   if (!opponent) {
     waitingQueue.push({
       id: socket.id,
       username: playerInfo.username,
-      userId: playerInfo.userId
+      userId: playerInfo.userId,
+      variant
     });
     const status = getStatus(io);
-    const data = { ok: true, status: 'queued', ...status, queueSize: status.queue };
+    const data = { ok: true, status: 'queued', variant, ...status, queueSize: status.queue };
     ack?.(data);
     socket.emit('duel_waiting', data);
     broadcastQueue(io);
-    console.log(`[MP] queued: ${playerInfo.username} (${status.queue} waiting, ${status.online} online)`);
+    console.log(`[MP] queued [${variant}]: ${playerInfo.username}`);
     return;
   }
 
@@ -138,25 +216,27 @@ function tryMatch(io, socket, playerInfo, ack) {
   if (!oppSocket?.connected) {
     const idx = waitingQueue.indexOf(opponent);
     if (idx >= 0) waitingQueue.splice(idx, 1);
-    waitingQueue.push({ id: socket.id, username: playerInfo.username, userId: playerInfo.userId });
+    waitingQueue.push({ id: socket.id, username: playerInfo.username, userId: playerInfo.userId, variant });
     const status = getStatus(io);
-    const data = { ok: true, status: 'queued', ...status, queueSize: status.queue };
-    ack?.(data);
-    socket.emit('duel_waiting', data);
+    ack?.({ ok: true, status: 'queued', variant, ...status, queueSize: status.queue });
+    socket.emit('duel_waiting', { ...status, queueSize: status.queue, variant });
     return;
   }
 
-  // Remove opponent from queue
   waitingQueue.splice(waitingQueue.indexOf(opponent), 1);
 
   const roomId = `duel-${Date.now()}`;
   const room = {
     id: roomId,
-    players: [
-      { socketId: opponent.id, username: opponent.username, userId: opponent.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null },
-      { socketId: socket.id, username: playerInfo.username, userId: playerInfo.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null }
-    ],
+    variant,
+    seed: null,
     started: false,
+    ended: false,
+    startTime: 0,
+    players: [
+      { socketId: opponent.id, username: opponent.username, userId: opponent.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null, stuck: false },
+      { socketId: socket.id, username: playerInfo.username, userId: playerInfo.userId, score: 0, finished: false, ready: false, disconnectedAt: null, reconnectTimer: null, stuck: false }
+    ],
     timer: null,
     readyTimer: null
   };
@@ -165,22 +245,36 @@ function tryMatch(io, socket, playerInfo, ack) {
   socketRooms.set(opponent.id, roomId);
   socketRooms.set(socket.id, roomId);
 
-  console.log(`[MP] matched: ${opponent.username} vs ${playerInfo.username} → room ${roomId}`);
+  console.log(`[MP] matched [${variant}]: ${opponent.username} vs ${playerInfo.username}`);
 
-  const pending = (oppName) => ({ roomId, opponent: oppName, status: 'pending' });
+  const pending = (oppName) => ({ roomId, opponent: oppName, status: 'pending', variant });
 
   io.to(opponent.id).emit('duel_found', pending(playerInfo.username));
   socket.emit('duel_found', pending(opponent.username));
 
-  // Auto-cancel if both don't ready within 15s
   room.readyTimer = setTimeout(() => {
-    if (!room.started) {
-      console.log(`[MP] ready timeout: ${roomId}`);
-      cancelRoom(roomId, io, 'ready_timeout');
-    }
+    if (!room.started) cancelRoom(roomId, io, 'ready_timeout');
   }, 15000);
 
-  ack?.({ ok: true, status: 'matched', roomId, opponent: opponent.username, ...getStatus(io) });
+  ack?.({ ok: true, status: 'matched', roomId, opponent: opponent.username, variant, ...getStatus(io) });
+}
+
+function broadcastScores(room, io) {
+  const payload = {
+    scores: room.players.map(p => ({ username: p.username, score: p.score, finished: p.finished, stuck: p.stuck }))
+  };
+  room.players.forEach(p => {
+    const s = io.sockets.sockets.get(p.socketId);
+    if (s?.connected) io.to(p.socketId).emit('duel_update', payload);
+  });
+}
+
+function handleSuddenStuck(roomId, io, room, stuckPlayer) {
+  const cfg = getVariantConfig(room.variant);
+  if (!cfg.sudden) return false;
+  const other = room.players.find(p => p !== stuckPlayer);
+  endDuel(roomId, io, { winnerUsername: other?.username, reason: 'sudden' });
+  return true;
 }
 
 export function setupMultiplayer(io) {
@@ -189,7 +283,7 @@ export function setupMultiplayer(io) {
     console.log(`[MP] + ${socket.id.slice(0, 8)} (online: ${io.engine.clientsCount})`);
 
     socket.on('mp_ping', (cb) => {
-      cb?.({ ok: true, id: socket.id, ...getStatus(io), queueSize: waitingQueue.length });
+      cb?.({ ok: true, id: socket.id, ...getStatus(io), queueSize: waitingQueue.length, variants: Object.keys(DUEL_VARIANTS) });
     });
 
     socket.on('auth', (data) => {
@@ -205,16 +299,17 @@ export function setupMultiplayer(io) {
       }
       playerInfo.username = username;
 
+      const variant = DUEL_VARIANTS[data?.variant] ? data.variant : 'blitz';
+
       if (socketRooms.has(socket.id)) {
         ack?.({ ok: false, error: 'already_in_game' });
         return;
       }
 
-      // Remove self from queue if re-searching
       const idx = waitingQueue.findIndex(e => e.id === socket.id);
       if (idx >= 0) waitingQueue.splice(idx, 1);
 
-      tryMatch(io, socket, playerInfo, ack);
+      tryMatch(io, socket, playerInfo, variant, ack);
     });
 
     socket.on('duel_ready', ({ roomId }) => {
@@ -223,22 +318,16 @@ export function setupMultiplayer(io) {
       const player = room.players.find(p => p.socketId === socket.id);
       if (!player) return;
 
-      // Client missed duel_start — resend if game already running
       if (room.started) {
-        const opp = room.players.find(x => x.socketId !== socket.id);
-        io.to(socket.id).emit('duel_start', {
-          roomId,
-          opponent: opp?.username || '?',
-          duration: Math.max(0, DUEL_DURATION - (Date.now() - room.startTime))
+        io.to(socket.id).emit('duel_start', { ...buildStartPayload(room, socket.id), rejoin: true });
+        io.to(socket.id).emit('duel_update', {
+          scores: room.players.map(p => ({ username: p.username, score: p.score, finished: p.finished }))
         });
-        console.log(`[MP] resync start → ${player.username}`);
         return;
       }
 
       if (player.ready) return;
-
       player.ready = true;
-      console.log(`[MP] ready: ${player.username} (${room.players.filter(p => p.ready).length}/2)`);
 
       if (room.players.every(p => p.ready)) {
         clearTimeout(room.readyTimer);
@@ -253,12 +342,7 @@ export function setupMultiplayer(io) {
       if (!player) return;
 
       if (room.started) {
-        const opp = room.players.find(x => x.socketId !== socket.id);
-        io.to(socket.id).emit('duel_start', {
-          roomId,
-          opponent: opp?.username || '?',
-          duration: Math.max(0, DUEL_DURATION - (Date.now() - room.startTime))
-        });
+        io.to(socket.id).emit('duel_start', buildStartPayload(room, socket.id));
       } else if (!player.ready) {
         player.ready = true;
         if (room.players.every(p => p.ready)) {
@@ -271,7 +355,7 @@ export function setupMultiplayer(io) {
     socket.on('rejoin_duel', ({ roomId, username }, ack) => {
       const room = activeRooms.get(roomId);
       const name = (username || playerInfo.username || '').trim();
-      if (!room?.started || !name) {
+      if (!room?.started || room.ended || !name) {
         ack?.({ ok: false, error: 'no_room' });
         return;
       }
@@ -289,20 +373,12 @@ export function setupMultiplayer(io) {
       socketRooms.set(socket.id, roomId);
       playerInfo.username = name;
 
-      const opp = room.players.find(x => x.username !== name);
-      const duration = Math.max(0, DUEL_DURATION - (Date.now() - room.startTime));
-      io.to(socket.id).emit('duel_start', {
-        roomId,
-        opponent: opp?.username || '?',
-        duration,
-        rejoin: true
-      });
+      io.to(socket.id).emit('duel_start', { ...buildStartPayload(room, socket.id), rejoin: true });
       io.to(socket.id).emit('duel_update', {
         scores: room.players.map(p => ({ username: p.username, score: p.score, finished: p.finished }))
       });
 
-      console.log(`[MP] rejoin: ${name} → ${roomId}`);
-      ack?.({ ok: true, duration });
+      ack?.({ ok: true, duration: buildStartPayload(room, socket.id).duration, variant: room.variant });
     });
 
     socket.on('cancel_duel', () => {
@@ -312,9 +388,7 @@ export function setupMultiplayer(io) {
       const roomId = socketRooms.get(socket.id);
       if (roomId) {
         const room = activeRooms.get(roomId);
-        if (room && !room.started) {
-          cancelRoom(roomId, io, 'cancelled');
-        }
+        if (room && !room.started) cancelRoom(roomId, io, 'cancelled');
       }
 
       socket.emit('duel_cancelled');
@@ -323,7 +397,7 @@ export function setupMultiplayer(io) {
 
     socket.on('duel_score', ({ roomId, score }) => {
       const room = activeRooms.get(roomId);
-      if (!room?.started) return;
+      if (!room?.started || room.ended) return;
       const player = room.players.find(p => p.socketId === socket.id);
       if (player && !player.finished) {
         player.score = score;
@@ -331,14 +405,40 @@ export function setupMultiplayer(io) {
       }
     });
 
+    socket.on('duel_attack', ({ roomId, lines }) => {
+      const room = activeRooms.get(roomId);
+      if (!room?.started || room.ended) return;
+      const cfg = getVariantConfig(room.variant);
+      if (!cfg.attack) return;
+      const rows = Math.min(3, Math.max(1, Math.floor(lines) || 1));
+      const opp = room.players.find(p => p.socketId !== socket.id);
+      if (opp) {
+        const s = io.sockets.sockets.get(opp.socketId);
+        if (s?.connected) io.to(opp.socketId).emit('duel_incoming_attack', { rows });
+      }
+    });
+
+    socket.on('duel_stuck', ({ roomId, score }) => {
+      const room = activeRooms.get(roomId);
+      if (!room?.started || room.ended) return;
+      const player = room.players.find(p => p.socketId === socket.id);
+      if (!player || player.finished) return;
+      player.score = score;
+      player.finished = true;
+      player.stuck = true;
+      if (handleSuddenStuck(roomId, io, room, player)) return;
+      broadcastScores(room, io);
+      if (room.players.every(p => p.finished)) endDuel(roomId, io);
+    });
+
     socket.on('duel_finished', ({ roomId, score }) => {
       const room = activeRooms.get(roomId);
-      if (!room) return;
+      if (!room?.started || room.ended) return;
       const player = room.players.find(p => p.socketId === socket.id);
-      if (player) {
-        player.score = score;
-        player.finished = true;
-      }
+      if (!player || player.finished) return;
+      player.score = score;
+      player.finished = true;
+      broadcastScores(room, io);
       if (room.players.every(p => p.finished)) endDuel(roomId, io);
     });
 
@@ -349,7 +449,7 @@ export function setupMultiplayer(io) {
       const roomId = socketRooms.get(socket.id);
       if (roomId) {
         const room = activeRooms.get(roomId);
-        if (room) {
+        if (room && !room.ended) {
           if (!room.started) {
             cancelRoom(roomId, io, 'opponent_left');
           } else {
@@ -364,46 +464,6 @@ export function setupMultiplayer(io) {
   });
 
   setInterval(() => purgeQueue(io), 5000);
-}
-
-function broadcastScores(room, io) {
-  const payload = {
-    scores: room.players.map(p => ({ username: p.username, score: p.score, finished: p.finished }))
-  };
-  room.players.forEach(p => {
-    const s = io.sockets.sockets.get(p.socketId);
-    if (s?.connected) io.to(p.socketId).emit('duel_update', payload);
-  });
-}
-
-function endDuel(roomId, io) {
-  const room = activeRooms.get(roomId);
-  if (!room) return;
-
-  clearTimeout(room.timer);
-  const [p1, p2] = room.players;
-  let winnerId = null;
-  if (p1.score > p2.score) winnerId = p1.userId;
-  else if (p2.score > p1.score) winnerId = p2.userId;
-
-  if (p1.userId && p2.userId) {
-    dbApi.saveDuel(roomId, winnerId, p1.userId, p2.userId, p1.score, p2.score);
-  }
-
-  const endPayload = {
-    scores: room.players.map(p => ({ username: p.username, score: p.score })),
-    winner: winnerId ? room.players.find(p => p.userId === winnerId)?.username : null,
-    draw: p1.score === p2.score
-  };
-
-  room.players.forEach(p => {
-    clearReconnectTimer(p);
-    const s = io.sockets.sockets.get(p.socketId);
-    if (s?.connected) io.to(p.socketId).emit('duel_end', endPayload);
-    socketRooms.delete(p.socketId);
-  });
-
-  activeRooms.delete(roomId);
 }
 
 export function getOnlineCount(io) {

@@ -77,7 +77,8 @@ export function canPlace(board, shape, row, col) {
       const br = row + r;
       const bc = col + c;
       if (br < 0 || br >= board.length || bc < 0 || bc >= board[0].length) return false;
-      if (board[br][bc].filled) return false;
+      const cell = board[br][bc];
+      if (cell.filled || cell.wall) return false;
     }
   }
   return true;
@@ -179,19 +180,61 @@ export function findRescueShape(board, heatmap) {
   return { shapeKey: 'dot', shape: cloneShape(SHAPES.dot) };
 }
 
-export function randomShapeKey(favoredColor = null, weights = {}) {
-  const pool = SHAPE_KEYS.filter(k => k !== 'line5_h' && k !== 'line5_v' || Math.random() < 0.15);
+export function randomShapeKey(favoredColor = null, weights = {}, rng = Math.random) {
+  const roll = typeof rng === 'function' ? rng : Math.random;
+  const pool = SHAPE_KEYS.filter(k => k !== 'line5_h' && k !== 'line5_v' || roll() < 0.15);
   const weighted = pool.map(key => ({
     key,
     weight: weights[key] ?? 1
   }));
   const total = weighted.reduce((s, w) => s + w.weight, 0);
-  let roll = Math.random() * total;
+  let r = roll() * total;
   for (const { key, weight } of weighted) {
-    roll -= weight;
-    if (roll <= 0) return key;
+    r -= weight;
+    if (r <= 0) return key;
   }
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(roll() * pool.length)];
+}
+
+/** Push garbage rows from the bottom (line-attack mode). */
+export function injectGarbageRows(board, rowCount, rng = Math.random) {
+  if (rowCount <= 0) return board;
+  const size = board.length;
+  let rows = board.map(r => r.map(c => ({ ...c })));
+  const roll = typeof rng === 'function' ? rng : Math.random;
+
+  for (let g = 0; g < rowCount; g++) {
+    rows.shift();
+    const holes = 2 + Math.floor(roll() * 2);
+    const row = Array.from({ length: size }, () => ({ filled: false, color: 0, event: false }));
+    const filled = new Set();
+    while (filled.size < size - holes) {
+      filled.add(Math.floor(roll() * size));
+    }
+    for (const c of filled) {
+      row[c] = { filled: true, color: Math.floor(roll() * COLORS.length), event: false, garbage: true };
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Block outer rings — shrink arena mode. */
+export function applyShrinkRing(board, level) {
+  if (level <= 0) return board;
+  const size = board.length;
+  const next = board.map(r => r.map(c => ({ ...c })));
+  for (let ring = 0; ring < level; ring++) {
+    for (let c = ring; c < size - ring; c++) {
+      next[ring][c] = { filled: true, color: 0, event: false, wall: true };
+      next[size - 1 - ring][c] = { filled: true, color: 0, event: false, wall: true };
+    }
+    for (let r = ring + 1; r < size - 1 - ring; r++) {
+      next[r][ring] = { filled: true, color: 0, event: false, wall: true };
+      next[r][size - 1 - ring] = { filled: true, color: 0, event: false, wall: true };
+    }
+  }
+  return next;
 }
 
 export function createPiece(shapeKey, color = null, isEvent = false) {

@@ -1,12 +1,15 @@
 import {
   createEmptyBoard, canPlace, placePiece, findClears, applyClears,
   hasAnyValidMove, boardFillPercent, createPiece, randomShapeKey,
-  findRescueShape, rotateShape, cloneShape, SHAPES, generateId
+  findRescueShape, rotateShape, cloneShape, SHAPES, generateId,
+  injectGarbageRows, applyShrinkRing
 } from '../game/board.js';
 import { getLoadoutEffects } from '../systems/cards.js';
 import { AdaptiveEngine } from '../systems/adaptive.js';
 import { shouldSpawnEventBlock } from '../systems/events.js';
 import { isBoardEmpty } from '../systems/puzzles.js';
+import { SeededRNG } from '../game/seeded-rng.js';
+import { getVariant } from '../game/duel-modes.js';
 
 export class GameEngine {
   constructor(mode = 'survival') {
@@ -30,6 +33,90 @@ export class GameEngine {
     this.onGameOver = null;
     this.onWin = null;
     this.onPuzzleFail = null;
+    this.duelVariant = null;
+    this.duelRng = null;
+    this.shrinkLevel = 0;
+    this.trayGeneration = 0;
+    this.onLineClear = null;
+    this.onDuelStuck = null;
+  }
+
+  initDuel(loadout, options = {}) {
+    const variant = getVariant(options.variant);
+    this.duelVariant = variant;
+    this.duelRng = variant.mirror && options.seed != null ? new SeededRNG(options.seed) : null;
+    this.shrinkLevel = 0;
+    this.trayGeneration = 0;
+    this.mode = 'survival';
+    this.board = createEmptyBoard();
+    this.score = 0;
+    this.tokensEarned = 0;
+    this.eventTokensEarned = 0;
+    this.combo = 0;
+    this.gameOver = false;
+    this.won = false;
+    this.adaptive.reset();
+    this.effects = getLoadoutEffects(loadout);
+    this.abilities = { rotationUsed: false, undoUsed: false, firstClearDone: false };
+    this.history = [];
+    this.linesClearedTotal = 0;
+    this.generateTray();
+    this.notify();
+  }
+
+  exportState() {
+    return {
+      board: this.board.map(r => r.map(c => ({ ...c }))),
+      pieces: this.pieces.map(p => ({
+        ...p,
+        shape: p.shape.map(row => [...row])
+      })),
+      score: this.score,
+      combo: this.combo,
+      shrinkLevel: this.shrinkLevel,
+      trayGeneration: this.trayGeneration,
+      duelVariant: this.duelVariant?.id,
+      gameOver: this.gameOver
+    };
+  }
+
+  restoreState(state) {
+    if (!state) return false;
+    this.board = state.board.map(r => r.map(c => ({ ...c })));
+    this.pieces = state.pieces.map(p => ({
+      ...p,
+      shape: p.shape.map(row => [...row])
+    }));
+    this.score = state.score;
+    this.combo = state.combo;
+    this.shrinkLevel = state.shrinkLevel || 0;
+    this.trayGeneration = state.trayGeneration || 0;
+    this.gameOver = !!state.gameOver;
+    if (state.duelVariant) this.duelVariant = getVariant(state.duelVariant);
+    this.notify();
+    return true;
+  }
+
+  applyGarbageAttack(rows) {
+    if (this.gameOver) return;
+    const rng = this.duelRng ? () => this.duelRng.next() : Math.random;
+    this.board = injectGarbageRows(this.board, rows, rng);
+    this.checkSurvivalEnd();
+    this.notify();
+  }
+
+  applyShrinkStep() {
+    if (this.gameOver || !this.duelVariant?.shrink) return;
+    const maxRing = Math.floor(this.board.length / 2) - 1;
+    if (this.shrinkLevel >= maxRing) return;
+    this.shrinkLevel++;
+    this.board = applyShrinkRing(this.board, this.shrinkLevel);
+    this.checkSurvivalEnd();
+    this.notify();
+  }
+
+  _roll() {
+    return this.duelRng ? this.duelRng.next() : Math.random();
   }
 
   initSurvival(loadout) {
@@ -86,15 +173,15 @@ export class GameEngine {
       }
 
       if (!shapeKey) {
-        shapeKey = randomShapeKey(this.effects.favorColor, weights);
+        shapeKey = randomShapeKey(this.effects.favorColor, weights, () => this._roll());
         shape = cloneShape(SHAPES[shapeKey]);
       }
 
-      let color = this.effects.favorColor !== null && Math.random() < 0.4
+      let color = this.effects.favorColor !== null && this._roll() < 0.4
         ? this.effects.favorColor
-        : Math.floor(Math.random() * 6);
+        : Math.floor(this._roll() * 6);
 
-      const isEvent = shouldSpawnEventBlock();
+      const isEvent = this.duelRng ? this._roll() < 0.08 : shouldSpawnEventBlock();
       pieces.push({
         id: generateId(),
         shapeKey,
@@ -108,10 +195,11 @@ export class GameEngine {
     }
 
     if (this.effects.extraDot) {
-      pieces.push(createPiece('dot', Math.floor(Math.random() * 6)));
+      pieces.push(createPiece('dot', Math.floor(this._roll() * 6)));
     }
 
     this.pieces = pieces;
+    this.trayGeneration++;
   }
 
   checkSurvivalEnd() {
@@ -205,6 +293,9 @@ export class GameEngine {
     if (this.mode === 'survival') {
       this.tokensEarned += Math.floor(points / 50);
       this.eventTokensEarned += eventTokens;
+      if (linesCleared > 0 && this.duelVariant?.attack) {
+        this.onLineClear?.(linesCleared);
+      }
     }
 
     if (this.mode === 'puzzle') {
@@ -260,7 +351,9 @@ export class GameEngine {
       abilities: this.abilities,
       effects: this.effects,
       puzzleMoveIndex: this.puzzleMoveIndex,
-      puzzleTotalMoves: this.puzzleTotalMoves
+      puzzleTotalMoves: this.puzzleTotalMoves,
+      shrinkLevel: this.shrinkLevel,
+      duelVariant: this.duelVariant?.id
     });
   }
 }

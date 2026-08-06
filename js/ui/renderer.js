@@ -292,7 +292,9 @@ export class Renderer {
         el.className = 'cell';
         if (data.filled) {
           el.classList.add('filled');
-          if (data.event) {
+          if (data.wall) {
+            el.classList.add('wall');
+          } else if (data.event) {
             el.classList.add('color-event', 'event-block');
           } else {
             el.classList.add(`color-${data.color}`);

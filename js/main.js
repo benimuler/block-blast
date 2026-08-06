@@ -21,6 +21,7 @@ import { ACHIEVEMENTS, checkAchievements, getLocalAchievements, mergeAchievement
 import { TROPHIES, checkTrophies, recordDuelResult, getWinRate } from './systems/trophies.js';
 import { loadSettings, getSettings, updateSettings, playSound, shouldShowTutorial, markTutorialSeen } from './systems/settings.js';
 import { initAds, showBanner, hideBanner, showInterstitialAfterGame, isNativeApp } from './systems/ads.js';
+import { listVariants, getVariant } from './game/duel-modes.js';
 
 class App {
   constructor() {
@@ -35,6 +36,9 @@ class App {
     this.isTournament = false;
     this.isDuel = false;
     this.duelFinished = false;
+    this.duelResultShown = false;
+    this.duelVariant = 'blitz';
+    this.shrinkTimer = null;
     this.duelState = 'idle'; // idle | searching | matched | playing
     this.duelTimer = null;
     this.duelEndTime = 0;
@@ -314,6 +318,10 @@ class App {
       });
     }
 
+    if (this.isDuel && this.duelState === 'playing') {
+      this.mp.saveDuelState(this.engine.exportState());
+    }
+
     if (this.currentMode === 'survival' && !this.engine.gameOver && !this.inputLocked) {
       this.engine.checkSurvivalEnd();
     }
@@ -420,6 +428,32 @@ class App {
   async handleGameOver() {
     playSound('lose');
     if (isNativeApp()) hideBanner();
+
+    if (this.isDuel) {
+      if (this.duelTimer) { clearInterval(this.duelTimer); this.duelTimer = null; }
+      if (this.shrinkTimer) { clearInterval(this.shrinkTimer); this.shrinkTimer = null; }
+      this.inputLocked = true;
+      this.renderer.inputLocked = true;
+      if (!this.duelFinished) {
+        this.duelFinished = true;
+        const variant = getVariant(this.duelVariant);
+        if (variant.sudden) {
+          this.mp.reportStuck(this.engine.score);
+        } else {
+          this.mp.finishDuel(this.engine.score);
+        }
+      }
+      if (!this.duelResultShown) {
+        this.renderer.showOverlay(
+          t('game.noMoves'),
+          `${t('game.score')}: ${this.engine.score} — ${t('multiplayer.waitingForResult')}`,
+          []
+        );
+      }
+      showInterstitialAfterGame();
+      return;
+    }
+
     const earned = this.engine.tokensEarned;
     const eventEarned = this.engine.eventTokensEarned;
     addTokens(earned, 'basic');
@@ -445,23 +479,6 @@ class App {
     });
     updateSave({ trophies: save.trophies });
     this.notifyTrophies(newTrophies);
-
-    if (this.isDuel) {
-      this.inputLocked = true;
-      this.renderer.inputLocked = true;
-      if (!this.duelFinished) {
-        this.duelFinished = true;
-        this.duelState = 'idle';
-        this.mp.finishDuel(this.engine.score);
-      }
-      this.renderer.showOverlay(
-        t('game.noMoves'),
-        `${t('game.score')}: ${this.engine.score} — ${t('multiplayer.waitingForResult')}`,
-        []
-      );
-      showInterstitialAfterGame();
-      return;
-    }
 
     const wasTournament = this.isTournament;
     const actions = [
@@ -582,9 +599,29 @@ class App {
 
     // Both players ready — START the game
     this.mp.onStart = (data) => {
-      if (this.duelState === 'playing' && this.mp.roomId === data.roomId && data.rejoin) {
+      if (data.rejoin) {
         this.duelEndTime = Date.now() + data.duration;
         this.mp.roomId = data.roomId;
+          this.duelVariant = data.variant || 'blitz';
+          this.currentMode = 'survival';
+          if (this.duelState !== 'playing') {
+          this.duelState = 'playing';
+          this.isDuel = true;
+          this.duelFinished = false;
+          this.duelResultShown = false;
+          document.body.classList.add('duel-mode');
+          showScreen('game');
+          const saved = this.mp.loadDuelState();
+          if (saved) {
+            this.engine.restoreState(saved);
+            this.renderer.setModeLabel(this.getDuelModeLabel());
+            this.startDuelTimer();
+            this.setupDuelVariantHooks(data);
+            this.updateGameUI();
+            showToast(t('multiplayer.reconnected'));
+            return;
+          }
+        }
         showToast(t('multiplayer.reconnected'));
         return;
       }
@@ -600,25 +637,42 @@ class App {
     };
 
     this.mp.onEnd = (data) => {
-      if (this.duelFinished) return;
+      if (this.duelResultShown) return;
+      this.duelResultShown = true;
       this.duelFinished = true;
       this.endDuelUI(data);
     };
 
+    this.mp.onIncomingAttack = (data) => {
+      if (!this.isDuel || this.engine.gameOver) return;
+      this.engine.applyGarbageAttack(data?.rows || 1);
+      showToast(t('multiplayer.incomingAttack', { rows: data?.rows || 1 }));
+      playSound('click');
+    };
+
     this.mp.onOpponentLeft = () => {
-      if (!this.isDuel || this.duelFinished) return;
-      this.duelFinished = true;
-      this.duelState = 'idle';
+      if (!this.isDuel || this.duelResultShown) return;
       if (this.duelTimer) clearInterval(this.duelTimer);
+      if (this.shrinkTimer) clearInterval(this.shrinkTimer);
+      this.duelTimer = null;
+      this.shrinkTimer = null;
       document.body.classList.remove('duel-mode');
-      this.isDuel = false;
-      this.mp.clearDuelSession();
-      this.renderer.hideOverlay();
-      showToast(t('multiplayer.opponentLeft'));
-      this.renderer.showOverlay(
-        t('multiplayer.opponentLeft'), '',
-        [{ label: t('game.mainMenu'), action: () => { this.renderer.hideOverlay(); this.showMultiplayer(); }, primary: true }]
-      );
+      this.inputLocked = true;
+      this.renderer.inputLocked = true;
+
+      const me = getPlayerName();
+      const myScore = this.engine.score;
+      this.duelResultShown = true;
+      this.duelFinished = true;
+      this.endDuelUI({
+        scores: [
+          { username: me, score: myScore },
+          { username: t('multiplayer.opponent'), score: 0 }
+        ],
+        winner: me,
+        draw: false,
+        reason: 'forfeit'
+      });
     };
 
     document.getElementById('btn-find-duel')?.addEventListener('click', () => this.startDuelSearch());
@@ -726,7 +780,7 @@ class App {
       return;
     }
 
-    const result = await this.mp.findDuel();
+    const result = await this.mp.findDuel(this.duelVariant);
     if (!result.ok) {
       this.duelState = 'idle';
       this.resetMultiplayerLobby();
@@ -769,20 +823,67 @@ class App {
     }
   }
 
+  getDuelModeLabel() {
+    const v = getVariant(this.duelVariant);
+    return `${t('game.duel')} — ${t(`duel.${v.id}.name`)}`;
+  }
+
+  setupDuelVariantHooks(data) {
+    if (this.shrinkTimer) clearInterval(this.shrinkTimer);
+    this.shrinkTimer = null;
+
+    this.engine.onLineClear = (lines) => {
+      if (this.isDuel && getVariant(this.duelVariant).attack) {
+        this.mp.sendAttack(lines);
+      }
+    };
+
+    const interval = data?.shrinkIntervalMs;
+    if (interval && getVariant(this.duelVariant).shrink) {
+      this.shrinkTimer = setInterval(() => {
+        if (!this.isDuel || this.engine.gameOver) return;
+        this.engine.applyShrinkStep();
+        showToast(t('multiplayer.arenaShrink'));
+      }, interval);
+    }
+  }
+
+  renderDuelModePicker() {
+    const el = document.getElementById('duel-mode-picker');
+    if (!el) return;
+    el.innerHTML = '';
+    for (const v of listVariants()) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'duel-mode-btn' + (this.duelVariant === v.id ? ' selected' : '');
+      btn.innerHTML = `<span class="duel-mode-icon">${v.icon}</span><span class="duel-mode-name">${t(`duel.${v.id}.name`)}</span><span class="duel-mode-desc">${t(`duel.${v.id}.desc`)}</span>`;
+      btn.addEventListener('click', () => {
+        playSound('click');
+        this.duelVariant = v.id;
+        this.mp.selectedVariant = v.id;
+        this.renderDuelModePicker();
+      });
+      el.appendChild(btn);
+    }
+  }
+
   beginDuelGame(data) {
     this.clearDuelStartWatchdog();
     this.duelState = 'playing';
     this.resetMultiplayerLobby();
     this.duelFinished = false;
+    this.duelResultShown = false;
     this.isDuel = true;
     this.isTournament = false;
+    this.duelVariant = data.variant || 'blitz';
     this.inputLocked = true;
     this.renderer.inputLocked = true;
     this.mp.roomId = data.roomId;
+    this.mp.markDuelActive();
     document.body.classList.add('duel-mode');
     this.duelEndTime = Date.now() + data.duration;
 
-    showToast(`${t('multiplayer.opponent')}: ${data.opponent}`);
+    showToast(`${t('multiplayer.matchFound')}: ${data.opponent}`);
     playSound('win');
 
     const oppScoreEl = document.getElementById('opponent-score');
@@ -791,16 +892,20 @@ class App {
     document.getElementById('duel-timer')?.classList.remove('hidden');
 
     showScreen('game');
-    this.startSurvival();
-    this.renderer.setModeLabel(t('game.duel'));
+    this.save = getSave();
+    this.currentMode = 'survival';
+    this.engine.initDuel(this.save.loadout, { variant: this.duelVariant, seed: data.seed });
+    this.setupDuelVariantHooks(data);
+    this.renderer.setModeLabel(this.getDuelModeLabel());
 
+    const variant = getVariant(this.duelVariant);
     let count = 3;
     const endAt = Date.now() + count * 800;
 
     const tick = () => {
       const left = Math.max(0, Math.ceil((endAt - Date.now()) / 800));
       if (left > 0) {
-        this.renderer.showOverlay(t('multiplayer.matchFound'), String(left), []);
+        this.renderer.showOverlay(t(`duel.${variant.id}.name`), String(left), []);
         setTimeout(tick, 120);
       } else {
         this.inputLocked = false;
@@ -827,24 +932,30 @@ class App {
 
   endDuelUI(data) {
     if (this.duelTimer) clearInterval(this.duelTimer);
+    if (this.shrinkTimer) clearInterval(this.shrinkTimer);
+    this.duelTimer = null;
+    this.shrinkTimer = null;
     document.body.classList.remove('duel-mode');
     this.isDuel = false;
     this.duelState = 'idle';
     this.mp.clearDuelSession();
+    this.renderer.hideOverlay();
 
     const me = getPlayerName();
     const myScore = data.scores.find(s => s.username === me)?.score ?? this.engine.score;
-    const oppScore = data.scores.find(s => s.username !== me)?.score ?? 0;
-    const won = !data.draw && myScore > oppScore;
+    const oppEntry = data.scores.find(s => s.username !== me);
+    const oppScore = oppEntry?.score ?? 0;
+    const won = data.winner === me || (!data.draw && myScore > oppScore && data.reason === 'forfeit');
+    const draw = !!data.draw;
 
     let save = getSave();
-    recordDuelResult(save, { won, draw: data.draw, myScore });
+    recordDuelResult(save, { won, draw, myScore });
     updateSave({ stats: save.stats, records: save.records });
 
     const newAch = won ? checkAchievements(save, 'duel_win') : [];
     if (newAch.length) this.notifyAchievements(newAch);
 
-    const newTrophies = checkTrophies(save, 'duel_end', { won, draw: data.draw, myScore });
+    const newTrophies = checkTrophies(save, 'duel_end', { won, draw, myScore });
     updateSave({ trophies: save.trophies });
     this.notifyTrophies(newTrophies);
 
@@ -854,9 +965,12 @@ class App {
       `<div class="duel-score-row"><span>${s.username}</span><span>${s.score}</span></div>`
     ).join('');
 
+    const reasonKey = data.reason && data.reason !== 'normal' ? `multiplayer.end.${data.reason}` : null;
+    const subtitle = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : `${t('game.score')}: ${myScore}`;
+
     this.renderer.showOverlay(
-      data.draw ? t('multiplayer.draw') : won ? t('multiplayer.win') : t('multiplayer.lose'),
-      `${t('game.score')}: ${myScore}`,
+      draw ? t('multiplayer.draw') : won ? t('multiplayer.win') : t('multiplayer.lose'),
+      subtitle,
       [{ label: t('game.mainMenu'), action: () => { this.renderer.hideOverlay(); this.showMultiplayer(); }, primary: true }]
     );
   }
@@ -891,6 +1005,7 @@ class App {
     document.getElementById('duel-scores')?.classList.add('hidden');
     showScreen('multiplayer');
     applyI18nToDOM();
+    this.renderDuelModePicker();
     this.checkWrongPort();
 
     const isMobile = isMobileDevice();

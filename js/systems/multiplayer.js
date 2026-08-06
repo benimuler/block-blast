@@ -15,7 +15,9 @@ export class MultiplayerClient {
     this.onEnd = null;
     this.onOpponentLeft = null;
     this.onCancelled = null;
+    this.onIncomingAttack = null;
     this.onConnectChange = null;
+    this.selectedVariant = 'blitz';
     this.lastError = null;
     this._lastUrl = null;
     this.socketId = null;
@@ -137,12 +139,20 @@ export class MultiplayerClient {
       try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
       this.onOpponentLeft?.();
     });
+
+    this.socket.on('duel_incoming_attack', (data) => {
+      this.onIncomingAttack?.(data);
+    });
   }
 
   _tryRejoinDuel() {
     let roomId = null;
     try { roomId = sessionStorage.getItem('blockblast_duel_room'); } catch { /* ignore */ }
     if (!roomId || !this.socket?.connected) return;
+    // Only auto-rejoin if we were mid-game (not lobby browsing)
+    try {
+      if (sessionStorage.getItem('blockblast_duel_active') !== '1') return;
+    } catch { return; }
     this.socket.emit('rejoin_duel', { roomId, username: getPlayerName() }, (ack) => {
       if (!ack?.ok) {
         try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
@@ -154,7 +164,26 @@ export class MultiplayerClient {
 
   clearDuelSession() {
     this.roomId = null;
-    try { sessionStorage.removeItem('blockblast_duel_room'); } catch { /* ignore */ }
+    try {
+      sessionStorage.removeItem('blockblast_duel_room');
+      sessionStorage.removeItem('blockblast_duel_active');
+      sessionStorage.removeItem('blockblast_duel_state');
+    } catch { /* ignore */ }
+  }
+
+  markDuelActive() {
+    try { sessionStorage.setItem('blockblast_duel_active', '1'); } catch { /* ignore */ }
+  }
+
+  saveDuelState(state) {
+    try { sessionStorage.setItem('blockblast_duel_state', JSON.stringify(state)); } catch { /* ignore */ }
+  }
+
+  loadDuelState() {
+    try {
+      const raw = sessionStorage.getItem('blockblast_duel_state');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
   }
 
   sendReady(roomId) {
@@ -168,7 +197,7 @@ export class MultiplayerClient {
     this.socket.emit('sync_duel', { roomId });
   }
 
-  findDuel() {
+  findDuel(variant = this.selectedVariant) {
     return new Promise((resolve) => {
       if (!this.socket?.connected) {
         resolve({ ok: false, error: 'not_connected' });
@@ -176,8 +205,9 @@ export class MultiplayerClient {
       }
       this._auth();
       this.isSearching = true;
+      this.selectedVariant = variant || 'blitz';
       const timer = setTimeout(() => resolve({ ok: false, error: 'timeout' }), 10000);
-      this.socket.emit('find_duel', { username: getPlayerName() }, (ack) => {
+      this.socket.emit('find_duel', { username: getPlayerName(), variant: this.selectedVariant }, (ack) => {
         clearTimeout(timer);
         resolve(ack || { ok: false, error: 'no_ack' });
       });
@@ -200,6 +230,18 @@ export class MultiplayerClient {
   finishDuel(score) {
     if (this.roomId && this.socket?.connected) {
       this.socket.emit('duel_finished', { roomId: this.roomId, score });
+    }
+  }
+
+  reportStuck(score) {
+    if (this.roomId && this.socket?.connected) {
+      this.socket.emit('duel_stuck', { roomId: this.roomId, score });
+    }
+  }
+
+  sendAttack(lines) {
+    if (this.roomId && this.socket?.connected) {
+      this.socket.emit('duel_attack', { roomId: this.roomId, lines });
     }
   }
 

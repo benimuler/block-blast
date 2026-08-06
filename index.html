@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <title>Block Blast Evolved</title>
-  <link rel="stylesheet" href="css/style.css?v=3.18">
+  <link rel="stylesheet" href="css/style.css?v=3.19">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -86,8 +86,9 @@
       </header>
       <div class="mp-cards">
         <div class="mp-card" id="mp-duel-card">
-          <h3>⚔️ <span data-i18n="multiplayer.duel">Quick Duel</span></h3>
-          <p data-i18n="multiplayer.duelDesc">3-minute race vs another player</p>
+          <h3>⚔️ <span data-i18n="multiplayer.duel">Competitive Modes</span></h3>
+          <p data-i18n="multiplayer.pickMode">Choose a mode — both players must pick the same one</p>
+          <div id="duel-mode-picker" class="duel-mode-picker"></div>
           <div class="mp-connection" id="mp-connection">
             <span class="mp-dot" id="mp-dot"></span>
             <span id="mp-connection-text" data-i18n="multiplayer.connecting">Connecting...</span>
@@ -302,7 +303,7 @@
   <script type="module" src="js/main.js?v=3.16"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js?v=3.18').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=3.19').catch(() => {});
     }
   </script>
 </body>
