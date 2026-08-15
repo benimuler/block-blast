@@ -7,7 +7,10 @@ let listeners = [];
 export function initI18n() {
   const saved = localStorage.getItem(STORAGE_KEY);
   const browser = navigator.language?.slice(0, 2);
-  currentLang = saved || (locales[browser] ? browser : 'en');
+  const docLang = document.documentElement.lang?.slice(0, 2);
+  currentLang = saved
+    || (locales[browser] ? browser : null)
+    || (locales[docLang] ? docLang : 'en');
   applyDocumentDirection();
 }
 

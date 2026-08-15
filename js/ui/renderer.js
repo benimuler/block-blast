@@ -100,9 +100,10 @@ export class Renderer {
   /** Top-left of shape on board — derived from grab point under finger */
   getPlacementFromPoint(clientX, clientY) {
     if (!this.dragPiece) return null;
+    const { x, y } = this.pointerToFixed(clientX, clientY);
     const { rect, padding, gap, cellSize } = this.getBoardMetrics();
-    const ghostLeft = clientX - this.grabOffsetX;
-    const ghostTop = clientY - this.grabOffsetY;
+    const ghostLeft = x - this.grabOffsetX;
+    const ghostTop = y - this.grabOffsetY;
     const x = ghostLeft - rect.left - padding;
     const y = ghostTop - rect.top - padding;
     const step = cellSize + gap;
