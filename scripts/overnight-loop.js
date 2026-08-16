@@ -24,7 +24,7 @@ function msUntilStop() {
 
 function run(cmd, args) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', shell: true });
+    const child = spawn(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' });
     child.on('close', code => resolve(code ?? 1));
   });
 }
