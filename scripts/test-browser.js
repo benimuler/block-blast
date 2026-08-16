@@ -147,6 +147,17 @@ async function main() {
     const heBlitz = await page.locator('.duel-mode-btn').first().locator('.duel-mode-name').textContent();
     assert(heBlitz?.includes('בליץ'), 'Hebrew duel mode label');
 
+    await page.locator('#screen-multiplayer .back-btn').click();
+    await page.waitForSelector('#screen-menu.active');
+    await page.click('[data-action="loadout"]');
+    await page.waitForSelector('#screen-loadout.active');
+    assert(await page.locator('.loadout-hint').isVisible(), 'loadout screen opens');
+
+    await page.locator('#screen-loadout .back-btn').click();
+    await page.click('[data-action="achievements"]');
+    await page.waitForSelector('#screen-achievements.active');
+    assert(await page.locator('#screen-achievements h2').isVisible(), 'achievements screen opens');
+
   } finally {
     await browser.close();
   }

@@ -161,6 +161,21 @@ function testGarbageAttack() {
   assert(emptyCells.length > 0, 'garbage rows leave holes');
 }
 
+function testWallsBlockPlacement() {
+  console.log('\nShrink walls block placement');
+  let board = createEmptyBoard();
+  board = applyShrinkRing(board, 1);
+  const dot = createPiece('dot', 0);
+  assert(!canPlace(board, dot.shape, 0, 0), 'cannot place on wall corner');
+  assert(canPlace(board, dot.shape, 1, 1), 'can place in playable area');
+  for (let r = 1; r <= 6; r++) {
+    for (let c = 1; c <= 6; c++) {
+      board[r][c] = { filled: true, color: 0, event: false };
+    }
+  }
+  assert(!hasAnyValidMove(board, [dot]), 'no moves when playable area full');
+}
+
 // ── Shrink arena walls survive line clears ──────────────────────────────────
 
 function testShrinkWallsNotCleared() {
@@ -281,6 +296,7 @@ testHasAnyValidMove();
 testSurvivalEndMidTray();
 testUndoResetsGameOver();
 testGarbageAttack();
+testWallsBlockPlacement();
 testShrinkWallsNotCleared();
 testDuelStateRestore();
 testDailyTimezone();
