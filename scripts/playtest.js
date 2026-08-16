@@ -7,7 +7,7 @@ import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
   findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix, GRID_SIZE
 } from '../js/game/board.js';
-import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
+import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave, spendTokens } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
 
 const UNDO_LOADOUT = ['legendary_undo'];
@@ -418,6 +418,22 @@ function testPreviewCellsInBounds() {
   assert(cells.length === 1, 'only in-bounds cell shown at right edge');
 }
 
+function testStorageEdgeCases() {
+  console.log('\nStorage edge cases');
+  withMockStorage(() => {
+    saveGame(createDefaultSave());
+    assert(spendTokens(-50, 'basic') === false, 'negative spend rejected');
+    assert(getSave().basicTokens === 100, 'tokens unchanged after negative spend');
+
+    saveGame(createDefaultSave());
+    completeDailyPuzzle();
+    const afterFirst = getSave().premiumTokens;
+    completeDailyPuzzle();
+    assert(getSave().premiumTokens === afterFirst, 'double daily complete gives no extra premium');
+    assert(getSave().dailyCompleted === true, 'daily still marked complete');
+  });
+}
+
 // ── Frontend module syntax ──────────────────────────────────────────────────
 
 async function testFrontendModules() {
@@ -450,6 +466,7 @@ testDailyTimezone();
 testLevelUp();
 testOffBoardPlacementRejected();
 testPreviewCellsInBounds();
+testStorageEdgeCases();
 await testFrontendModules();
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -89,6 +89,7 @@ export function addTokens(amount, type = 'basic') {
 }
 
 export function spendTokens(amount, type = 'basic') {
+  if (amount <= 0) return false;
   const save = getSave();
   const key = type === 'basic' ? 'basicTokens' : type === 'premium' ? 'premiumTokens' : 'eventTokens';
   if (save[key] < amount) return false;
@@ -153,6 +154,10 @@ export function checkDailyStreak() {
 export function completeDailyPuzzle() {
   const save = getSave();
   const today = getTodayKey();
+
+  if (save.dailyCompleted && save.lastDailyDate === today) {
+    return save;
+  }
 
   if (save.lastDailyDate !== today) {
     if (save.lastDailyDate) {
