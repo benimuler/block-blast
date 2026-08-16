@@ -79,6 +79,56 @@ async function testVariant(variant) {
   b.disconnect();
 }
 
+async function testSuddenDeath() {
+  console.log('\nDuel variant: sudden (stuck)');
+  const a = await connectClient('SuddenA');
+  const b = await connectClient('SuddenB');
+
+  const foundA = waitFor(a, 'duel_found');
+  const foundB = waitFor(b, 'duel_found');
+  a.emit('find_duel', { username: 'SuddenA', variant: 'sudden' }, () => {});
+  b.emit('find_duel', { username: 'SuddenB', variant: 'sudden' }, () => {});
+  const [fa] = await Promise.all([foundA, foundB]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  const endB = waitFor(b, 'duel_end');
+  a.emit('duel_stuck', { roomId: fa.roomId, score: 10 });
+  const eb = await endB;
+
+  assert(eb.winner === 'SuddenB', 'opponent wins sudden death when other stuck');
+  assert(eb.reason === 'sudden', 'end reason is sudden');
+
+  a.disconnect();
+  b.disconnect();
+}
+
+async function testForfeit() {
+  console.log('\nDuel forfeit');
+  const a = await connectClient('ForfeitA');
+  const b = await connectClient('ForfeitB');
+
+  a.emit('find_duel', { username: 'ForfeitA', variant: 'blitz' }, () => {});
+  b.emit('find_duel', { username: 'ForfeitB', variant: 'blitz' }, () => {});
+  const [fa] = await Promise.all([waitFor(a, 'duel_found'), waitFor(b, 'duel_found')]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  const endB = waitFor(b, 'duel_end');
+  a.emit('duel_forfeit', { roomId: fa.roomId });
+  const eb = await endB;
+
+  assert(eb.winner === 'ForfeitB', 'remaining player wins on forfeit');
+  assert(eb.reason === 'forfeit', 'end reason is forfeit');
+
+  a.disconnect();
+  b.disconnect();
+}
+
 async function main() {
   console.log(`Multiplayer duel smoke test → ${SERVER}`);
   try {
@@ -97,6 +147,20 @@ async function main() {
       failed++;
       console.error(`  ✗ ${v} failed: ${e.message}`);
     }
+  }
+
+  try {
+    await testSuddenDeath();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ sudden stuck failed: ${e.message}`);
+  }
+
+  try {
+    await testForfeit();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ forfeit failed: ${e.message}`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

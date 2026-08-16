@@ -442,6 +442,14 @@ export function setupMultiplayer(io) {
       if (room.players.every(p => p.finished)) endDuel(roomId, io);
     });
 
+    socket.on('duel_forfeit', ({ roomId }) => {
+      const room = activeRooms.get(roomId);
+      if (!room?.started || room.ended) return;
+      const player = room.players.find(p => p.socketId === socket.id);
+      if (!player) return;
+      forfeitDisconnectedPlayer(roomId, io, room, socket.id);
+    });
+
     socket.on('disconnect', () => {
       const qIdx = waitingQueue.findIndex(e => e.id === socket.id);
       if (qIdx >= 0) waitingQueue.splice(qIdx, 1);

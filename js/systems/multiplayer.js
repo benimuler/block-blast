@@ -233,6 +233,14 @@ export class MultiplayerClient {
     }
   }
 
+  forfeitDuel() {
+    const roomId = this.roomId;
+    if (roomId && this.socket?.connected) {
+      this.socket.emit('duel_forfeit', { roomId });
+    }
+    this.clearDuelSession();
+  }
+
   reportStuck(score) {
     if (this.roomId && this.socket?.connected) {
       this.socket.emit('duel_stuck', { roomId: this.roomId, score });

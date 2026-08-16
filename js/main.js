@@ -368,10 +368,13 @@ class App {
       document.body.classList.remove('duel-mode');
 
       if (this.isDuel) {
+        const wasPlaying = this.duelState === 'playing';
         this.isDuel = false;
         this.duelFinished = true;
         this.duelState = 'idle';
-        this.mp.finishDuel(this.engine.score);
+        if (wasPlaying && this.mp.roomId) {
+          this.mp.forfeitDuel();
+        }
         showScreen('multiplayer');
         this.refreshMenu();
         return;
