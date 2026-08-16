@@ -64,6 +64,7 @@ async function testVariant(variant) {
   assert(sb.roomId === fb.roomId, 'player B got duel_start');
   assert(sa.variant === variant, 'start payload has correct variant');
   assert(typeof sa.seed === 'number', 'mirror seed present');
+  assert(sa.seed === sb.seed, 'both players share mirror seed');
 
   a.emit('duel_finished', { roomId: fa.roomId, score: 100 });
   b.emit('duel_finished', { roomId: fb.roomId, score: 50 });
