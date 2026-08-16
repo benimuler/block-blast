@@ -104,11 +104,11 @@ export class Renderer {
     const { rect, padding, gap, cellSize } = this.getBoardMetrics();
     const ghostLeft = x - this.grabOffsetX;
     const ghostTop = y - this.grabOffsetY;
-    const x = ghostLeft - rect.left - padding;
-    const y = ghostTop - rect.top - padding;
+    const boardX = ghostLeft - rect.left - padding;
+    const boardY = ghostTop - rect.top - padding;
     const step = cellSize + gap;
-    const col = Math.round(x / step);
-    const row = Math.round(y / step);
+    const col = Math.round(boardX / step);
+    const row = Math.round(boardY / step);
     return { row, col };
   }
 

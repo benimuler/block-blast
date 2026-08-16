@@ -14,6 +14,8 @@
     "test:playtest": "node scripts/playtest.js",
     "test:sim": "node scripts/sim-play.js --loops=100",
     "test:all": "npm run test:playtest && npm run test:puzzles && npm run test:sim",
+    "test:mp": "node scripts/test-duel-mp.js",
+    "test:browser": "node scripts/test-browser.js",
     "build:mobile": "node scripts/build-mobile.js",
     "admob:sync": "node scripts/sync-admob-config.js",
     "cap:sync": "npm run build:mobile && node scripts/sync-admob-config.js && npx cap sync android",
@@ -33,6 +35,8 @@
     "uuid": "^11.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.0"
+    "@capacitor/cli": "^8.5.0",
+    "playwright": "^1.62.1",
+    "socket.io-client": "^4.8.1"
   }
 }

@@ -201,6 +201,18 @@ function testLevelUp() {
   });
 }
 
+// ── Frontend module syntax ──────────────────────────────────────────────────
+
+async function testFrontendModules() {
+  console.log('\nFrontend module syntax');
+  try {
+    await import('../js/ui/renderer.js');
+    assert(true, 'renderer.js imports without syntax errors');
+  } catch (e) {
+    assert(false, `renderer.js import failed: ${e.message}`);
+  }
+}
+
 // ── Run ─────────────────────────────────────────────────────────────────────
 
 console.log('Block Blast playtest');
@@ -209,6 +221,7 @@ testSurvivalEndMidTray();
 testUndoResetsGameOver();
 testDailyTimezone();
 testLevelUp();
+await testFrontendModules();
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
