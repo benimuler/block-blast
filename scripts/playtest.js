@@ -216,6 +216,46 @@ function testDuelStateRestore() {
   assert(engine2.duelRng.next() === expectedNext, 'restore preserves RNG stream');
 }
 
+function testMirrorIdenticalTrays() {
+  console.log('\nMirror duel identical trays');
+  const seed = 99991;
+  const a = new GameEngine('survival');
+  const b = new GameEngine('survival');
+  a.initDuel([], { variant: 'mirror', seed });
+  b.initDuel([], { variant: 'mirror', seed });
+
+  const traySig = (e) => e.pieces.map(p => `${p.shapeKey}:${p.color}:${p.isEvent}`).join('|');
+  assert(traySig(a) === traySig(b), 'mirror seed → identical first tray');
+
+  // Mark all pieces used and regenerate — RNG stream must stay in sync
+  a.pieces.forEach(p => { p.used = true; });
+  b.pieces.forEach(p => { p.used = true; });
+  a.generateTray();
+  b.generateTray();
+  assert(traySig(a) === traySig(b), 'mirror seed → identical second tray');
+}
+
+function testAttackLineClearCallback() {
+  console.log('\nAttack mode line clear callback');
+  const engine = new GameEngine('survival');
+  engine.initDuel([], { variant: 'attack', seed: 42 });
+  let attackRows = 0;
+  engine.onLineClear = (rows) => { attackRows += rows; };
+
+  // Fill row 0 except one gap, place domino to complete row
+  for (let c = 0; c < 6; c++) {
+    engine.board[0][c] = { filled: true, color: 0, event: false };
+  }
+  engine.pieces = [
+    { id: 'd1', shapeKey: 'domino_h', shape: cloneShape(SHAPES.domino_h), color: 1, isEvent: false, used: false, rotated: false },
+    { id: 'd2', shapeKey: 'dot', shape: cloneShape(SHAPES.dot), color: 2, isEvent: false, used: false, rotated: false },
+    { id: 'd3', shapeKey: 'dot', shape: cloneShape(SHAPES.dot), color: 3, isEvent: false, used: false, rotated: false },
+  ];
+  const placed = engine.tryPlace('d1', 0, 6);
+  assert(placed, 'domino placed to complete row');
+  assert(attackRows >= 1, 'attack onLineClear fires on row clear');
+}
+
 // ── Daily puzzle date uses local timezone ───────────────────────────────────
 
 function testDailyTimezone() {
@@ -299,6 +339,8 @@ testGarbageAttack();
 testWallsBlockPlacement();
 testShrinkWallsNotCleared();
 testDuelStateRestore();
+testMirrorIdenticalTrays();
+testAttackLineClearCallback();
 testDailyTimezone();
 testLevelUp();
 await testFrontendModules();
