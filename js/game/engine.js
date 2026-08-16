@@ -61,6 +61,7 @@ export class GameEngine {
     this.abilities = { rotationUsed: false, undoUsed: false, firstClearDone: false };
     this.history = [];
     this.linesClearedTotal = 0;
+    this.onLineClear = null;
     this.generateTray();
     this.notify();
   }
