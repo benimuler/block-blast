@@ -1,4 +1,4 @@
-import { GRID_SIZE, COLORS } from '../game/board.js';
+import { GRID_SIZE, COLORS, isCellInBounds, boardCellIndex } from '../game/board.js';
 import { getCardName, getCardDesc, getRarityLabel } from '../systems/cards.js';
 
 export class Renderer {
@@ -126,7 +126,8 @@ export class Renderer {
           this.clearPreview();
           if (placement) {
             this.previewCells = this.dragPiece.previewFn(placement.row, placement.col);
-            this.showPreview(this.previewCells);
+            const hasOnBoard = this.previewCells.some(c => isCellInBounds(c.row, c.col));
+            if (hasOnBoard) this.showPreview(this.previewCells);
           }
         });
       }
@@ -136,9 +137,13 @@ export class Renderer {
       if (!this.dragPiece) return;
       const placement = this.getPlacementFromPoint(clientX, clientY);
       const pieceId = this.dragPiece.id;
+      const previewFn = this.dragPiece.previewFn;
       this.endDrag();
-      if (placement) {
-        this.onPlace?.(pieceId, placement.row, placement.col);
+      if (placement && previewFn) {
+        const cells = previewFn(placement.row, placement.col);
+        if (cells.length && cells[0].valid) {
+          this.onPlace?.(pieceId, placement.row, placement.col);
+        }
       }
     };
 
@@ -270,7 +275,8 @@ export class Renderer {
 
   showPreview(cells) {
     for (const { row, col, valid } of cells) {
-      const idx = row * GRID_SIZE + col;
+      const idx = boardCellIndex(row, col);
+      if (idx == null) continue;
       const el = this.boardEl.children[idx];
       if (el) el.classList.add(valid ? 'preview-valid' : 'preview-invalid');
     }

@@ -1,0 +1,14 @@
+---
+description: Bug hunt cloud agent — fix bugs until 01:00 IDT or 10k cumulative fixes
+alwaysApply: false
+---
+
+# Bug Hunt Agent Mode
+
+When running bug hunt (see `.cursor/BUG-HUNT-AGENT.md`):
+
+1. Loop until `data/bug-registry.json` → `cumulativeFixed >= 10000` OR 01:00 IDT
+2. Every bug fix requires a unique `testId` test added
+3. Run `npm run test:ci` before commit; commit + push autonomously
+4. Read `data/bug-hunt-last-explore.json` on explore failures
+5. Do not stop early; proactively fuzz unexplored code paths

@@ -1,5 +1,15 @@
 export const GRID_SIZE = 8;
 
+export function isCellInBounds(row, col, size = GRID_SIZE) {
+  return row >= 0 && row < size && col >= 0 && col < size;
+}
+
+/** Linear index into a flat GRID_SIZE×GRID_SIZE cell list; null when out of bounds. */
+export function boardCellIndex(row, col, size = GRID_SIZE) {
+  if (!isCellInBounds(row, col, size)) return null;
+  return row * size + col;
+}
+
 export const COLORS = [
   '#7c3aed', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#ef4444'
 ];

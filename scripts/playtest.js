@@ -5,7 +5,8 @@
 import { GameEngine } from '../js/game/engine.js';
 import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
-  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix
+  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix,
+  boardCellIndex, isCellInBounds, GRID_SIZE
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
@@ -390,6 +391,26 @@ function testLevelUp() {
   });
 }
 
+// ── Preview index bounds (no wrap-around) ───────────────────────────────────
+
+function testPreviewCellIndex() {
+  console.log('\nPreview cell index bounds');
+  assert(boardCellIndex(0, 0) === 0, 'origin → index 0');
+  assert(boardCellIndex(7, 7) === 63, 'bottom-right → index 63');
+  assert(boardCellIndex(0, 8) === null, 'col 8 off-board → null (no wrap to row 1)');
+  assert(boardCellIndex(1, -1) === null, 'col -1 off-board → null');
+  assert(boardCellIndex(-1, 0) === null, 'row -1 off-board → null');
+  assert(boardCellIndex(8, 0) === null, 'row 8 off-board → null');
+  assert(!isCellInBounds(0, 8), 'col 8 not in bounds');
+  assert(isCellInBounds(3, 4), 'center cell in bounds');
+
+  const engine = new GameEngine('survival');
+  const piece = engine.pieces.find(p => !p.used);
+  const cells = engine.getPreviewCells(piece, 0, 8);
+  const onBoard = cells.filter(c => isCellInBounds(c.row, c.col));
+  assert(onBoard.length === 0, 'shape at col 8 has no on-board preview cells');
+}
+
 // ── Frontend module syntax ──────────────────────────────────────────────────
 
 async function testFrontendModules() {
@@ -420,6 +441,7 @@ testPuzzleWin();
 testPieceRotation();
 testDailyTimezone();
 testLevelUp();
+testPreviewCellIndex();
 await testFrontendModules();
 
 console.log(`\n${passed} passed, ${failed} failed`);

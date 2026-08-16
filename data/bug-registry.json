@@ -1,0 +1,18 @@
+{
+  "target": 10000,
+  "cumulativeFixed": 1,
+  "sessionStarted": "2026-08-16T13:15:00.000Z",
+  "lastUpdated": "2026-08-16T13:15:00.000Z",
+  "bugs": [
+    {
+      "id": "BUG-00001",
+      "testId": "preview.no-wrap.off-board",
+      "title": "Drag preview wrapped to opposite board edge when shape off-board",
+      "area": "ui/drag",
+      "description": "showPreview used row*8+col without bounds check; col>=8 highlighted wrong cells",
+      "filesChanged": ["js/ui/renderer.js", "js/game/board.js"],
+      "testFile": "scripts/playtest.js",
+      "fixedAt": "2026-08-16T13:15:00.000Z"
+    }
+  ]
+}

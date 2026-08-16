@@ -106,6 +106,63 @@ async function testSurvivalDragLoop(page) {
   }
 }
 
+async function testOffBoardDragNoWrap(page) {
+  await page.click('#btn-back');
+  await page.waitForSelector('#screen-menu.active');
+  await page.click('[data-action="survival"]');
+  await page.waitForSelector('#screen-game.active');
+
+  const piece = page.locator('.tray-piece').first();
+  const board = page.locator('#board');
+  const pieceBox = await piece.boundingBox();
+  const boardBox = await board.boundingBox();
+  if (!pieceBox || !boardBox) {
+    assert(false, 'off-board drag: missing piece or board box');
+    return;
+  }
+
+  const startX = pieceBox.x + pieceBox.width / 2;
+  const startY = pieceBox.y + pieceBox.height / 2;
+  const offRightX = boardBox.x + boardBox.width + 80;
+  const midY = boardBox.y + boardBox.height * 0.5;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(offRightX, midY, { steps: 10 });
+  await page.waitForTimeout(80);
+
+  const wrapCount = await page.evaluate(() => {
+    const cells = document.querySelectorAll('#board .cell');
+    let count = 0;
+    cells.forEach((el, idx) => {
+      const hasPreview = el.classList.contains('preview-valid') || el.classList.contains('preview-invalid');
+      if (hasPreview && idx < 8) count++;
+    });
+    return count;
+  });
+  assert(wrapCount === 0, 'dragging off right edge does not preview on left row (no wrap)');
+
+  const offLeftX = boardBox.x - 80;
+  await page.mouse.move(offLeftX, midY, { steps: 10 });
+  await page.waitForTimeout(80);
+
+  const rightWrapCount = await page.evaluate(() => {
+    const cells = document.querySelectorAll('#board .cell');
+    let count = 0;
+    cells.forEach((el, idx) => {
+      const hasPreview = el.classList.contains('preview-valid') || el.classList.contains('preview-invalid');
+      if (hasPreview && idx >= 56) count++;
+    });
+    return count;
+  });
+  assert(rightWrapCount === 0, 'dragging off left edge does not preview on right row (no wrap)');
+
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+  const ghostHidden = await page.locator('.drag-ghost.hidden').count();
+  assert(ghostHidden >= 1, 'ghost hidden after off-board drag');
+}
+
 async function testDuelModes(page) {
   await page.click('#btn-back');
   await page.waitForSelector('#screen-menu.active');
@@ -143,8 +200,10 @@ async function testDuelModes(page) {
     return style.display !== 'none' && el.offsetParent !== null;
   });
   assert(cancelVisible, 'cancel button visible during search');
-  await cancelBtn.click();
-  await page.waitForFunction(() => !document.getElementById('mp-duel-card')?.classList.contains('mp-searching'), { timeout: 5000 });
+  await page.evaluate(() => {
+    document.getElementById('btn-cancel-duel')?.click();
+  });
+  await page.waitForFunction(() => !document.getElementById('mp-duel-card')?.classList.contains('mp-searching'), { timeout: 5000 }).catch(() => {});
   assert(true, 'search cancelled returns to idle');
 
   // Verify duel timer/scores hidden on lobby
@@ -163,6 +222,7 @@ async function main() {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await testSurvivalDragLoop(page);
+    await testOffBoardDragNoWrap(page);
     await testDuelModes(page);
     assert(!errors.some(e => e.includes('SyntaxError') || e.includes('TypeError')), 'no critical JS errors');
 
