@@ -67,6 +67,7 @@ class App {
     this.initMobileAds();
 
     if (shouldShowTutorial()) this.showTutorial();
+    if (typeof window !== 'undefined') window.__bbApp = this;
   }
 
   setupAds() {

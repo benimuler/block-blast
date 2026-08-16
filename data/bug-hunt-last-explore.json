@@ -1,0 +1,123 @@
+{
+  "passed": 23,
+  "failed": 0,
+  "tests": [
+    {
+      "testId": "explore.menu.survival",
+      "status": "pass",
+      "msg": "[data-action=\"survival\"] opens #screen-game"
+    },
+    {
+      "testId": "explore.menu.daily",
+      "status": "pass",
+      "msg": "[data-action=\"daily\"] opens #screen-game"
+    },
+    {
+      "testId": "explore.menu.inventory",
+      "status": "pass",
+      "msg": "[data-action=\"inventory\"] opens #screen-inventory"
+    },
+    {
+      "testId": "explore.menu.loadout",
+      "status": "pass",
+      "msg": "[data-action=\"loadout\"] opens #screen-loadout"
+    },
+    {
+      "testId": "explore.menu.pack",
+      "status": "pass",
+      "msg": "[data-action=\"pack\"] opens #screen-pack"
+    },
+    {
+      "testId": "explore.menu.event-shop",
+      "status": "pass",
+      "msg": "[data-action=\"event-shop\"] opens #screen-event-shop"
+    },
+    {
+      "testId": "explore.menu.multiplayer",
+      "status": "pass",
+      "msg": "[data-action=\"multiplayer\"] opens #screen-multiplayer"
+    },
+    {
+      "testId": "explore.menu.leaderboard",
+      "status": "pass",
+      "msg": "[data-action=\"leaderboard\"] opens #screen-leaderboard"
+    },
+    {
+      "testId": "explore.menu.settings",
+      "status": "pass",
+      "msg": "[data-action=\"settings\"] opens #screen-settings"
+    },
+    {
+      "testId": "explore.menu.achievements",
+      "status": "pass",
+      "msg": "[data-action=\"achievements\"] opens #screen-achievements"
+    },
+    {
+      "testId": "explore.menu.profile",
+      "status": "pass",
+      "msg": "profile opens"
+    },
+    {
+      "testId": "explore.drag.offboard-no-wrap",
+      "status": "pass",
+      "msg": "off-board drag must not wrap preview (previews=0)"
+    },
+    {
+      "testId": "explore.drag.offboard-no-place",
+      "status": "pass",
+      "msg": "off-board drop must not place piece"
+    },
+    {
+      "testId": "explore.preview.edge-in-bounds",
+      "status": "pass",
+      "msg": "edge preview cells in bounds (1 cells)"
+    },
+    {
+      "testId": "explore.i18n.he.survival",
+      "status": "pass",
+      "msg": "Hebrew survival label"
+    },
+    {
+      "testId": "explore.i18n.he.rtl",
+      "status": "pass",
+      "msg": "HTML dir=rtl for Hebrew"
+    },
+    {
+      "testId": "explore.duel.five-modes",
+      "status": "pass",
+      "msg": "5 duel modes listed"
+    },
+    {
+      "testId": "explore.duel.mode-0",
+      "status": "pass",
+      "msg": "duel mode 0 selectable"
+    },
+    {
+      "testId": "explore.duel.mode-1",
+      "status": "pass",
+      "msg": "duel mode 1 selectable"
+    },
+    {
+      "testId": "explore.duel.mode-2",
+      "status": "pass",
+      "msg": "duel mode 2 selectable"
+    },
+    {
+      "testId": "explore.duel.mode-3",
+      "status": "pass",
+      "msg": "duel mode 3 selectable"
+    },
+    {
+      "testId": "explore.duel.mode-4",
+      "status": "pass",
+      "msg": "duel mode 4 selectable"
+    },
+    {
+      "testId": "explore.no-syntax-errors",
+      "status": "pass",
+      "msg": "no syntax errors during explore"
+    }
+  ],
+  "errors": [],
+  "ok": true
+}

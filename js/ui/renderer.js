@@ -109,6 +109,8 @@ export class Renderer {
     const step = cellSize + gap;
     const col = Math.round(boardX / step);
     const row = Math.round(boardY / step);
+    // Off-board anchor — prevents preview wrap onto opposite grid cells (BUG-00001)
+    if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return null;
     return { row, col };
   }
 
@@ -270,6 +272,7 @@ export class Renderer {
 
   showPreview(cells) {
     for (const { row, col, valid } of cells) {
+      if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) continue;
       const idx = row * GRID_SIZE + col;
       const el = this.boardEl.children[idx];
       if (el) el.classList.add(valid ? 'preview-valid' : 'preview-invalid');

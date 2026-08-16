@@ -344,11 +344,10 @@ export class GameEngine {
     for (let r = 0; r < piece.shape.length; r++) {
       for (let c = 0; c < piece.shape[r].length; c++) {
         if (!piece.shape[r][c]) continue;
-        cells.push({
-          row: row + r,
-          col: col + c,
-          valid
-        });
+        const br = row + r;
+        const bc = col + c;
+        if (br < 0 || br >= this.board.length || bc < 0 || bc >= this.board[0].length) continue;
+        cells.push({ row: br, col: bc, valid });
       }
     }
     return cells;

@@ -5,7 +5,7 @@
 import { GameEngine } from '../js/game/engine.js';
 import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
-  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix
+  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix, GRID_SIZE
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
@@ -390,6 +390,34 @@ function testLevelUp() {
   });
 }
 
+// ── Off-board placement rejected (BUG-00001) ───────────────────────────────
+
+function testOffBoardPlacementRejected() {
+  console.log('\nOff-board placement rejected');
+  const engine = new GameEngine('survival');
+  engine.initSurvival([]);
+  const piece = engine.pieces.find(p => !p.used);
+  assert(!!piece, 'tray has piece');
+
+  assert(engine.tryPlace(piece.id, -1, 0) === false, 'negative row rejected');
+  assert(engine.tryPlace(piece.id, 0, -1) === false, 'negative col rejected');
+  assert(engine.tryPlace(piece.id, GRID_SIZE, 0) === false, 'row at GRID_SIZE rejected');
+  assert(engine.tryPlace(piece.id, 0, GRID_SIZE) === false, 'col at GRID_SIZE rejected');
+  assert(piece.used === false, 'piece not consumed on rejected placement');
+}
+
+function testPreviewCellsInBounds() {
+  console.log('\nPreview cells stay in grid bounds');
+  const engine = new GameEngine('survival');
+  engine.initSurvival([]);
+  const piece = createPiece('line3_h', 0);
+  const cells = engine.getPreviewCells(piece, 0, GRID_SIZE - 1);
+  assert(cells.length > 0, 'edge preview has cells');
+  assert(cells.every(c => c.row >= 0 && c.row < GRID_SIZE && c.col >= 0 && c.col < GRID_SIZE),
+    'all preview cells within grid');
+  assert(cells.length === 1, 'only in-bounds cell shown at right edge');
+}
+
 // ── Frontend module syntax ──────────────────────────────────────────────────
 
 async function testFrontendModules() {
@@ -420,6 +448,8 @@ testPuzzleWin();
 testPieceRotation();
 testDailyTimezone();
 testLevelUp();
+testOffBoardPlacementRejected();
+testPreviewCellsInBounds();
 await testFrontendModules();
 
 console.log(`\n${passed} passed, ${failed} failed`);

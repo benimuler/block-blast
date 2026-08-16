@@ -1,0 +1,29 @@
+{
+  "cumulativeFixed": 2,
+  "fixes": [
+    {
+      "bugId": "BUG-00001",
+      "title": "Off-board drag must not wrap preview or place",
+      "testId": "explore.drag.offboard-no-wrap",
+      "files": [
+        "js/ui/renderer.js",
+        "scripts/playtest.js",
+        "scripts/explore-all-screens.js"
+      ],
+      "notes": "",
+      "fixedAt": "2026-08-16T13:23:15.809Z"
+    },
+    {
+      "bugId": "BUG-00002",
+      "title": "Edge piece preview must not wrap to next row",
+      "testId": "playtest.preview.cells-in-bounds",
+      "files": [
+        "js/game/engine.js",
+        "js/ui/renderer.js",
+        "scripts/playtest.js"
+      ],
+      "notes": "",
+      "fixedAt": "2026-08-16T13:24:09.310Z"
+    }
+  ]
+}
