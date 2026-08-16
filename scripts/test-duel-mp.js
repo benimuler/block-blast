@@ -165,6 +165,31 @@ async function testRejoin() {
   b.disconnect();
 }
 
+async function testScoreUpdate() {
+  console.log('\nDuel live score update');
+  const a = await connectClient('ScoreA');
+  const b = await connectClient('ScoreB');
+
+  a.emit('find_duel', { username: 'ScoreA', variant: 'blitz' }, () => {});
+  b.emit('find_duel', { username: 'ScoreB', variant: 'blitz' }, () => {});
+  const [fa] = await Promise.all([waitFor(a, 'duel_found'), waitFor(b, 'duel_found')]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  const updateB = waitFor(b, 'duel_update');
+  a.emit('duel_score', { roomId: fa.roomId, score: 120 });
+  const upd = await updateB;
+  const scoreA = upd.scores.find(s => s.username === 'ScoreA');
+  assert(scoreA?.score === 120, 'opponent receives live score update');
+
+  a.emit('duel_forfeit', { roomId: fa.roomId });
+  await waitFor(b, 'duel_end');
+  a.disconnect();
+  b.disconnect();
+}
+
 async function testAttackEvent() {
   console.log('\nDuel attack garbage event');
   const a = await connectClient('AttackA');
@@ -267,6 +292,13 @@ async function main() {
   } catch (e) {
     failed++;
     console.error(`  ✗ attack event failed: ${e.message}`);
+  }
+
+  try {
+    await testScoreUpdate();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ score update failed: ${e.message}`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
