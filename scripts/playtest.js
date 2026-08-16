@@ -320,6 +320,8 @@ function testPieceRotation() {
   const engine = new GameEngine('survival');
   engine.initSurvival(ROTATION_LOADOUT);
   const piece = engine.pieces[0];
+  piece.shapeKey = 'domino_v';
+  piece.shape = cloneShape(SHAPES.domino_v);
   const before = JSON.stringify(piece.shape);
   const ok = engine.rotatePiece(piece.id);
   assert(ok, 'rotatePiece succeeds with gold_rotation loadout');
