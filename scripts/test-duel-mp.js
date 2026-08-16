@@ -165,6 +165,30 @@ async function testRejoin() {
   b.disconnect();
 }
 
+async function testAttackEvent() {
+  console.log('\nDuel attack garbage event');
+  const a = await connectClient('AttackA');
+  const b = await connectClient('AttackB');
+
+  a.emit('find_duel', { username: 'AttackA', variant: 'attack' }, () => {});
+  b.emit('find_duel', { username: 'AttackB', variant: 'attack' }, () => {});
+  const [fa] = await Promise.all([waitFor(a, 'duel_found'), waitFor(b, 'duel_found')]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  const incoming = waitFor(b, 'duel_incoming_attack');
+  a.emit('duel_attack', { roomId: fa.roomId, lines: 2 });
+  const evt = await incoming;
+  assert(evt.rows >= 1 && evt.rows <= 3, 'attack sends garbage rows to opponent');
+
+  a.emit('duel_forfeit', { roomId: fa.roomId });
+  await waitFor(b, 'duel_end');
+  a.disconnect();
+  b.disconnect();
+}
+
 async function testDraw() {
   console.log('\nDuel draw (tie score)');
   const a = await connectClient('DrawA');
@@ -236,6 +260,13 @@ async function main() {
   } catch (e) {
     failed++;
     console.error(`  ✗ draw failed: ${e.message}`);
+  }
+
+  try {
+    await testAttackEvent();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ attack event failed: ${e.message}`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

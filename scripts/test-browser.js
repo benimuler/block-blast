@@ -138,8 +138,14 @@ async function main() {
     await page.click('[data-action="settings"]');
     await page.selectOption('#setting-language', 'he');
     await page.waitForTimeout(200);
+    await page.locator('#screen-settings .back-btn').click();
+    await page.waitForSelector('#screen-menu.active');
     const survivalText = await page.locator('[data-action="survival"]').textContent();
     assert(survivalText?.includes('הישרדות'), 'Hebrew survival menu label');
+    await page.click('[data-action="multiplayer"]');
+    await page.waitForSelector('#screen-multiplayer.active');
+    const heBlitz = await page.locator('.duel-mode-btn').first().locator('.duel-mode-name').textContent();
+    assert(heBlitz?.includes('בליץ'), 'Hebrew duel mode label');
 
   } finally {
     await browser.close();
