@@ -158,6 +158,16 @@ async function main() {
     await page.waitForSelector('#screen-achievements.active');
     assert(await page.locator('#screen-achievements h2').isVisible(), 'achievements screen opens');
 
+    await page.locator('#screen-achievements .back-btn').click();
+    await page.click('[data-action="leaderboard"]');
+    await page.waitForSelector('#screen-leaderboard.active');
+    assert(await page.locator('#leaderboard-list').isVisible(), 'leaderboard screen opens');
+
+    await page.locator('#screen-leaderboard .back-btn').click();
+    await page.click('#user-badge');
+    await page.waitForSelector('#screen-profile.active');
+    assert(await page.locator('#profile-stats').isVisible(), 'profile screen opens');
+
   } finally {
     await browser.close();
   }
