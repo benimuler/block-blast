@@ -143,13 +143,15 @@ export function applyClears(board, clears) {
 
 export function boardFillPercent(board) {
   let filled = 0;
-  const total = board.length * board[0].length;
+  let playable = 0;
   for (const row of board) {
     for (const cell of row) {
+      if (cell.wall) continue;
+      playable++;
       if (cell.filled) filled++;
     }
   }
-  return filled / total;
+  return playable ? filled / playable : 0;
 }
 
 export function hasAnyValidMove(board, pieces) {

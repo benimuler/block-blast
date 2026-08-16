@@ -5,7 +5,8 @@
 import { GameEngine } from '../js/game/engine.js';
 import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
-  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix, GRID_SIZE
+  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix, GRID_SIZE,
+  boardFillPercent
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave, spendTokens, addTokens } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
@@ -418,6 +419,13 @@ function testPreviewCellsInBounds() {
   assert(cells.length === 1, 'only in-bounds cell shown at right edge');
 }
 
+function testBoardFillPercentShrink() {
+  console.log('\nboardFillPercent excludes shrink walls');
+  const board = applyShrinkRing(createEmptyBoard(), 1);
+  const pct = boardFillPercent(board);
+  assert(pct === 0, `empty shrink arena reads 0% playable fill (got ${pct})`);
+}
+
 function testStorageEdgeCases() {
   console.log('\nStorage edge cases');
   withMockStorage(() => {
@@ -472,6 +480,7 @@ testDailyTimezone();
 testLevelUp();
 testOffBoardPlacementRejected();
 testPreviewCellsInBounds();
+testBoardFillPercentShrink();
 testStorageEdgeCases();
 await testFrontendModules();
 

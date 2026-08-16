@@ -7,3 +7,4 @@ Overnight bug hunt — each entry has a permanent test in CI.
 - **BUG-00004** (playtest.storage.double-daily-blocked): Prevent double daily puzzle premium reward
 - **BUG-00005** (playtest.storage.negative-addTokens-ignored): Ignore negative addTokens amounts
 - **BUG-00006** (playtest.storage.negative-addXP-ignored): Ignore negative addXP amounts
+- **BUG-00007** (playtest.board.fill-percent-shrink-walls): boardFillPercent excludes shrink walls from playable fill

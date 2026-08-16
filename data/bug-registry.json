@@ -1,5 +1,5 @@
 {
-  "cumulativeFixed": 6,
+  "cumulativeFixed": 7,
   "fixes": [
     {
       "bugId": "BUG-00001",
@@ -64,6 +64,16 @@
       ],
       "notes": "",
       "fixedAt": "2026-08-16T13:29:35.951Z"
+    },
+    {
+      "bugId": "BUG-00007",
+      "title": "boardFillPercent excludes shrink walls from playable fill",
+      "testId": "playtest.board.fill-percent-shrink-walls",
+      "files": [
+        "js/game/board.js"
+      ],
+      "notes": "",
+      "fixedAt": "2026-08-16T13:30:30.040Z"
     }
   ]
 }
