@@ -5,12 +5,13 @@
 import { GameEngine } from '../js/game/engine.js';
 import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
-  findClears, applyClears, applyShrinkRing, injectGarbageRows
+  findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
 
 const UNDO_LOADOUT = ['legendary_undo'];
+const ROTATION_LOADOUT = ['gold_rotation'];
 
 let passed = 0;
 let failed = 0;
@@ -286,6 +287,46 @@ function testSuddenDeathStuck() {
   assert(ended, 'sudden duel stuck fires onGameOver');
 }
 
+function testPuzzleWin() {
+  console.log('\nPuzzle win detection');
+  const puzzle = {
+    board: boardFromMatrix([
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0],
+    ]),
+    pieces: [{
+      id: 'p0', shapeKey: 'dot', shape: cloneShape(SHAPES.dot), color: 0,
+      isEvent: false, used: false, rotated: false
+    }],
+    totalMoves: 1
+  };
+  const engine = new GameEngine('puzzle');
+  engine.initPuzzle(puzzle);
+  let wonCb = false;
+  engine.onWin = () => { wonCb = true; };
+  assert(engine.tryPlace('p0', 3, 7), 'puzzle winning placement succeeds');
+  assert(engine.won, 'puzzle sets won flag');
+  assert(wonCb, 'puzzle fires onWin callback');
+}
+
+function testPieceRotation() {
+  console.log('\nPiece rotation');
+  const engine = new GameEngine('survival');
+  engine.initSurvival(ROTATION_LOADOUT);
+  const piece = engine.pieces[0];
+  const before = JSON.stringify(piece.shape);
+  const ok = engine.rotatePiece(piece.id);
+  assert(ok, 'rotatePiece succeeds with gold_rotation loadout');
+  assert(JSON.stringify(piece.shape) !== before, 'shape changes after rotation');
+  assert(!engine.rotatePiece(piece.id), 'rotation limited to once per game');
+}
+
 // ── Daily puzzle date uses local timezone ───────────────────────────────────
 
 function testDailyTimezone() {
@@ -373,6 +414,8 @@ testMirrorIdenticalTrays();
 testAttackLineClearCallback();
 testShrinkStep();
 testSuddenDeathStuck();
+testPuzzleWin();
+testPieceRotation();
 testDailyTimezone();
 testLevelUp();
 await testFrontendModules();
