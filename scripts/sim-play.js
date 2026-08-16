@@ -3,9 +3,10 @@
  * Run: node scripts/sim-play.js [--loops N]
  */
 import { GameEngine } from '../js/game/engine.js';
-import { hasAnyValidMove, canPlace, SHAPES, cloneShape } from '../js/game/board.js';
+import { hasAnyValidMove, canPlace, SHAPES, cloneShape, createEmptyBoard, applyShrinkRing, findClears, applyClears } from '../js/game/board.js';
 
-const LOOPS = parseInt(process.argv.find(a => a.startsWith('--loops='))?.split('=')[1] || '50', 10);
+const loopArgs = process.argv.filter(a => a.startsWith('--loops='));
+const LOOPS = parseInt(loopArgs.at(-1)?.split('=')[1] || '50', 10);
 
 let passed = 0;
 let failed = 0;
@@ -99,6 +100,17 @@ function simulateMidTrayStuck() {
   return { gameOver: engine.gameOver, fired };
 }
 
+function simulateShrinkClears() {
+  let board = applyShrinkRing(createEmptyBoard(), 1);
+  for (let c = 1; c < 7; c++) {
+    board[1][c] = { filled: true, color: 2, event: false };
+  }
+  const clears = findClears(board);
+  if (!clears.rows.includes(1)) return { ok: false };
+  board = applyClears(board, clears).board;
+  return { ok: board[0][0].wall && board[0][0].filled && !board[1][1].filled };
+}
+
 console.log(`\n=== Block Blast Sim-Play (${LOOPS} loops) ===\n`);
 
 // Duel stuck scenarios
@@ -109,6 +121,9 @@ const midTray = simulateMidTrayStuck();
 if (!midTray.skipped) {
   assert('mid-tray stuck → gameOver', midTray.gameOver && midTray.fired);
 }
+
+const shrinkClear = simulateShrinkClears();
+assert('shrink walls survive row clear', shrinkClear.ok);
 
 // Random survival games
 let stuckCount = 0;
