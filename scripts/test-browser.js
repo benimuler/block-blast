@@ -159,6 +159,16 @@ async function main() {
     assert(await page.locator('#screen-achievements h2').isVisible(), 'achievements screen opens');
 
     await page.locator('#screen-achievements .back-btn').click();
+    await page.click('[data-action="inventory"]');
+    await page.waitForSelector('#screen-inventory.active');
+    assert(await page.locator('#inventory-grid').isVisible(), 'inventory screen opens');
+
+    await page.locator('#screen-inventory .back-btn').click();
+    await page.click('[data-action="settings"]');
+    await page.waitForSelector('#screen-settings.active');
+    assert(await page.locator('#setting-language').isVisible(), 'settings screen opens');
+
+    await page.locator('#screen-settings .back-btn').click();
     await page.click('[data-action="leaderboard"]');
     await page.waitForSelector('#screen-leaderboard.active');
     assert(await page.locator('#leaderboard-list').isVisible(), 'leaderboard screen opens');
