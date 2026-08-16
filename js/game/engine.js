@@ -131,6 +131,11 @@ export class GameEngine {
 
   initSurvival(loadout) {
     this.mode = 'survival';
+    this.duelVariant = null;
+    this.duelRng = null;
+    this.duelSeed = null;
+    this.shrinkLevel = 0;
+    this.onLineClear = null;
     this.board = createEmptyBoard();
     this.score = 0;
     this.tokensEarned = 0;

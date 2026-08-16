@@ -1000,10 +1000,12 @@ class App {
     this.notifyTrophies(newTrophies);
 
     const scoresEl = document.getElementById('duel-scores');
-    scoresEl.classList.remove('hidden');
-    scoresEl.innerHTML = data.scores.map(s =>
-      `<div class="duel-score-row"><span>${s.username}</span><span>${s.score}</span></div>`
-    ).join('');
+    if (scoresEl) {
+      scoresEl.classList.remove('hidden');
+      scoresEl.innerHTML = data.scores.map(s =>
+        `<div class="duel-score-row"><span>${s.username}</span><span>${s.score}</span></div>`
+      ).join('');
+    }
 
     const reasonKey = data.reason && data.reason !== 'normal' ? `multiplayer.end.${data.reason}` : null;
     const subtitle = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : `${t('game.score')}: ${myScore}`;

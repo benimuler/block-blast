@@ -5,7 +5,7 @@
 import { GameEngine } from '../js/game/engine.js';
 import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
-  findClears, applyClears, applyShrinkRing
+  findClears, applyClears, applyShrinkRing, injectGarbageRows
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
@@ -141,6 +141,26 @@ function testUndoResetsGameOver() {
   assert(hasAnyValidMove(engine.board, engine.pieces), 'valid moves exist after undo');
 }
 
+// ── Attack mode garbage rows ────────────────────────────────────────────────
+
+function testGarbageAttack() {
+  console.log('\nAttack mode garbage injection');
+  const engine = new GameEngine('survival');
+  engine.initDuel([], { variant: 'attack', seed: 99 });
+  const before = engine.board[7].filter(c => c.filled).length;
+  engine.applyGarbageAttack(2);
+  const after = engine.board[7].filter(c => c.filled).length;
+  assert(after >= before, 'garbage adds filled cells at bottom');
+  assert(engine.board.length === 8, 'board stays 8x8 after garbage');
+  const emptyCells = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (!engine.board[r][c].filled) emptyCells.push([r, c]);
+    }
+  }
+  assert(emptyCells.length > 0, 'garbage rows leave holes');
+}
+
 // ── Shrink arena walls survive line clears ──────────────────────────────────
 
 function testShrinkWallsNotCleared() {
@@ -260,6 +280,7 @@ console.log('Block Blast playtest');
 testHasAnyValidMove();
 testSurvivalEndMidTray();
 testUndoResetsGameOver();
+testGarbageAttack();
 testShrinkWallsNotCleared();
 testDuelStateRestore();
 testDailyTimezone();
