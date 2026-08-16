@@ -165,6 +165,11 @@ async function main() {
     await testSurvivalDragLoop(page);
     await testDuelModes(page);
     assert(!errors.some(e => e.includes('SyntaxError') || e.includes('TypeError')), 'no critical JS errors');
+
+    await page.locator('#screen-multiplayer .back-btn').click();
+    await page.waitForSelector('#screen-menu.active');
+    const timerHidden = await page.locator('#duel-timer').evaluate(el => el.classList.contains('hidden'));
+    assert(timerHidden, 'duel timer hidden on menu after survival back');
   } finally {
     await browser.close();
   }

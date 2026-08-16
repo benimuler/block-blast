@@ -17,6 +17,7 @@
     "test:mp": "node scripts/test-duel-mp.js",
     "test:browser": "node scripts/test-browser.js",
     "test:browser:gameplay": "node scripts/playtest-browser-gameplay.js",
+    "test:ci": "npm run test:all && npm run test:mp && npm run test:browser && npm run test:browser:gameplay",
     "build:mobile": "node scripts/build-mobile.js",
     "admob:sync": "node scripts/sync-admob-config.js",
     "cap:sync": "npm run build:mobile && node scripts/sync-admob-config.js && npx cap sync android",

@@ -365,24 +365,25 @@ class App {
 
   setupGameControls() {
     document.getElementById('btn-back').addEventListener('click', () => {
-      if (this.duelTimer) { clearInterval(this.duelTimer); this.duelTimer = null; }
-      this.inputLocked = false;
-      this.renderer.inputLocked = false;
-      document.body.classList.remove('duel-mode');
-
       if (this.isDuel) {
         const wasPlaying = this.duelState === 'playing';
         this.isDuel = false;
         this.duelFinished = true;
         this.duelState = 'idle';
+        this.inputLocked = false;
+        this.renderer.inputLocked = false;
+        this.clearDuelHUD();
         if (wasPlaying && this.mp.roomId) {
           this.mp.forfeitDuel();
         }
-        showScreen('multiplayer');
-        this.refreshMenu();
+        this.renderer.hideOverlay();
+        this.showMultiplayer();
         return;
       }
 
+      if (this.duelTimer) { clearInterval(this.duelTimer); this.duelTimer = null; }
+      this.inputLocked = false;
+      this.renderer.inputLocked = false;
       if (this.currentMode === 'survival' && !this.engine.gameOver) {
         const earned = this.engine.tokensEarned;
         if (earned > 0 || this.engine.eventTokensEarned > 0) {
@@ -636,11 +637,7 @@ class App {
 
     this.mp.onOpponentLeft = () => {
       if (!this.isDuel || this.duelResultShown) return;
-      if (this.duelTimer) clearInterval(this.duelTimer);
-      if (this.shrinkTimer) clearInterval(this.shrinkTimer);
-      this.duelTimer = null;
-      this.shrinkTimer = null;
-      document.body.classList.remove('duel-mode');
+      this.clearDuelHUD();
       this.inputLocked = true;
       this.renderer.inputLocked = true;
 
@@ -970,18 +967,22 @@ class App {
     }
   }
 
-  endDuelUI(data) {
+  clearDuelHUD() {
     if (this.duelTimer) clearInterval(this.duelTimer);
     if (this.shrinkTimer) clearInterval(this.shrinkTimer);
     this.duelTimer = null;
     this.shrinkTimer = null;
     document.body.classList.remove('duel-mode');
+    document.getElementById('duel-timer')?.classList.add('hidden');
+    document.querySelectorAll('.duel-only').forEach(el => el.classList.add('hidden'));
+  }
+
+  endDuelUI(data) {
+    this.clearDuelHUD();
     this.isDuel = false;
     this.duelState = 'idle';
     this.mp.clearDuelSession();
     this.renderer.hideOverlay();
-    document.getElementById('duel-timer')?.classList.add('hidden');
-    document.querySelectorAll('.duel-only').forEach(el => el.classList.add('hidden'));
 
     const me = getPlayerName();
     const myScore = data.scores.find(s => s.username === me)?.score ?? this.engine.score;
