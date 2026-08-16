@@ -256,6 +256,36 @@ function testAttackLineClearCallback() {
   assert(attackRows >= 1, 'attack onLineClear fires on row clear');
 }
 
+function testShrinkStep() {
+  console.log('\nShrink duel arena step');
+  const engine = new GameEngine('survival');
+  engine.initDuel([], { variant: 'shrink', seed: 7 });
+  assert(engine.shrinkLevel === 0, 'starts at shrink level 0');
+  const playableBefore = engine.board.flat().filter(c => !c.wall).length;
+  engine.applyShrinkStep();
+  assert(engine.shrinkLevel === 1, 'shrink level increments');
+  const playableAfter = engine.board.flat().filter(c => !c.wall).length;
+  assert(playableAfter < playableBefore, 'shrink reduces playable cells');
+  assert(engine.board[0][0].wall, 'corner becomes wall after shrink');
+}
+
+function testSuddenDeathStuck() {
+  console.log('\nSudden death stuck detection');
+  const engine = new GameEngine('survival');
+  engine.initDuel([], { variant: 'sudden', seed: 1 });
+  fillBoardExcept(engine.board, [[7, 7]]);
+  engine.pieces = [
+    { id: 's1', shapeKey: 'square', shape: cloneShape(SHAPES.square), color: 0, isEvent: false, used: false, rotated: false },
+    { id: 's2', shapeKey: 'line4_h', shape: cloneShape(SHAPES.line4_h), color: 1, isEvent: false, used: false, rotated: false },
+    { id: 's3', shapeKey: 'plus', shape: cloneShape(SHAPES.plus), color: 2, isEvent: false, used: false, rotated: false },
+  ];
+  let ended = false;
+  engine.onGameOver = () => { ended = true; };
+  engine.checkSurvivalEnd();
+  assert(engine.gameOver, 'sudden duel stuck → gameOver');
+  assert(ended, 'sudden duel stuck fires onGameOver');
+}
+
 // ── Daily puzzle date uses local timezone ───────────────────────────────────
 
 function testDailyTimezone() {
@@ -341,6 +371,8 @@ testShrinkWallsNotCleared();
 testDuelStateRestore();
 testMirrorIdenticalTrays();
 testAttackLineClearCallback();
+testShrinkStep();
+testSuddenDeathStuck();
 testDailyTimezone();
 testLevelUp();
 await testFrontendModules();
