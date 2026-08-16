@@ -80,6 +80,7 @@ export function updateSave(partial) {
 }
 
 export function addTokens(amount, type = 'basic') {
+  if (amount <= 0) return getSave();
   const save = getSave();
   if (type === 'basic') save.basicTokens += amount;
   else if (type === 'premium') save.premiumTokens += amount;
@@ -106,6 +107,7 @@ export function addCardToInventory(cardId) {
 }
 
 export function addXP(amount) {
+  if (amount <= 0) return { save: getSave(), leveledUp: false, newLevel: getSave().level };
   const save = getSave();
   const prevLevel = save.level;
   save.xp += amount;

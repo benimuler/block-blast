@@ -7,7 +7,7 @@ import {
   createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
   findClears, applyClears, applyShrinkRing, injectGarbageRows, boardFromMatrix, GRID_SIZE
 } from '../js/game/board.js';
-import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave, spendTokens } from '../js/systems/storage.js';
+import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave, spendTokens, addTokens } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
 
 const UNDO_LOADOUT = ['legendary_undo'];
@@ -431,6 +431,12 @@ function testStorageEdgeCases() {
     completeDailyPuzzle();
     assert(getSave().premiumTokens === afterFirst, 'double daily complete gives no extra premium');
     assert(getSave().dailyCompleted === true, 'daily still marked complete');
+
+    saveGame(createDefaultSave());
+    addTokens(-10, 'basic');
+    assert(getSave().basicTokens === 100, 'negative addTokens ignored');
+    addXP(-50);
+    assert(getSave().xp === 0, 'negative addXP ignored');
   });
 }
 
