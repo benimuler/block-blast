@@ -165,6 +165,31 @@ async function testRejoin() {
   b.disconnect();
 }
 
+async function testDraw() {
+  console.log('\nDuel draw (tie score)');
+  const a = await connectClient('DrawA');
+  const b = await connectClient('DrawB');
+
+  a.emit('find_duel', { username: 'DrawA', variant: 'blitz' }, () => {});
+  b.emit('find_duel', { username: 'DrawB', variant: 'blitz' }, () => {});
+  const [fa] = await Promise.all([waitFor(a, 'duel_found'), waitFor(b, 'duel_found')]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  a.emit('duel_finished', { roomId: fa.roomId, score: 75 });
+  b.emit('duel_finished', { roomId: fa.roomId, score: 75 });
+
+  const [ea, eb] = await Promise.all([waitFor(a, 'duel_end'), waitFor(b, 'duel_end')]);
+  assert(ea.draw === true, 'duel ends in draw');
+  assert(eb.draw === true, 'both clients see draw');
+  assert(!ea.winner, 'no winner on tie');
+
+  a.disconnect();
+  b.disconnect();
+}
+
 async function main() {
   console.log(`Multiplayer duel smoke test → ${SERVER}`);
   try {
@@ -204,6 +229,13 @@ async function main() {
   } catch (e) {
     failed++;
     console.error(`  ✗ rejoin failed: ${e.message}`);
+  }
+
+  try {
+    await testDraw();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ draw failed: ${e.message}`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

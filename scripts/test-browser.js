@@ -125,8 +125,15 @@ async function main() {
     const blitzName = await blitzBtn.locator('.duel-mode-name').textContent();
     assert(blitzName?.length > 0, 'duel mode has label');
 
-    // Hebrew i18n
+    // Settings + pack screen smoke
     await page.locator('#screen-multiplayer .back-btn').click();
+    await page.waitForSelector('#screen-menu.active');
+    await page.click('[data-action="pack"]');
+    await page.waitForSelector('#screen-pack.active');
+    assert(await page.locator('#btn-open-pack').isVisible(), 'pack screen opens');
+
+    // Hebrew i18n
+    await page.locator('#screen-pack .back-btn').click();
     await page.waitForSelector('#screen-menu.active');
     await page.click('[data-action="settings"]');
     await page.selectOption('#setting-language', 'he');

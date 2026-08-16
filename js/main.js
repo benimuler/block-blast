@@ -1011,7 +1011,7 @@ class App {
     this.renderer.showOverlay(
       draw ? t('multiplayer.draw') : won ? t('multiplayer.win') : t('multiplayer.lose'),
       subtitle,
-      [{ label: t('game.mainMenu'), action: () => { this.renderer.hideOverlay(); this.showMultiplayer(); }, primary: true }]
+      [{ label: t('multiplayer.backToLobby'), action: () => { this.renderer.hideOverlay(); this.showMultiplayer(); }, primary: true }]
     );
   }
 
