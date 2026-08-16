@@ -44,6 +44,7 @@ export class GameEngine {
   initDuel(loadout, options = {}) {
     const variant = getVariant(options.variant);
     this.duelVariant = variant;
+    this.duelSeed = options.seed ?? null;
     this.duelRng = variant.mirror && options.seed != null ? new SeededRNG(options.seed) : null;
     this.shrinkLevel = 0;
     this.trayGeneration = 0;
@@ -76,6 +77,8 @@ export class GameEngine {
       shrinkLevel: this.shrinkLevel,
       trayGeneration: this.trayGeneration,
       duelVariant: this.duelVariant?.id,
+      duelSeed: this.duelSeed ?? null,
+      duelRngState: this.duelRng?.state ?? null,
       gameOver: this.gameOver
     };
   }
@@ -93,6 +96,13 @@ export class GameEngine {
     this.trayGeneration = state.trayGeneration || 0;
     this.gameOver = !!state.gameOver;
     if (state.duelVariant) this.duelVariant = getVariant(state.duelVariant);
+    if (state.duelSeed != null) {
+      this.duelSeed = state.duelSeed;
+      this.duelRng = this.duelVariant?.mirror ? new SeededRNG(state.duelSeed) : null;
+      if (this.duelRng && state.duelRngState != null) {
+        this.duelRng.state = state.duelRngState >>> 0;
+      }
+    }
     this.notify();
     return true;
   }

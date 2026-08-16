@@ -140,6 +140,28 @@ function testUndoResetsGameOver() {
   assert(hasAnyValidMove(engine.board, engine.pieces), 'valid moves exist after undo');
 }
 
+// ── Duel state export/restore ───────────────────────────────────────────────
+
+function testDuelStateRestore() {
+  console.log('\nDuel state export/restore (mirror RNG)');
+  const engine = new GameEngine('survival');
+  engine.initDuel([], { variant: 'mirror', seed: 12345 });
+  engine.score = 250;
+  engine.trayGeneration = 2;
+  engine.duelRng.next();
+  engine.duelRng.next();
+  const exported = engine.exportState();
+  const expectedNext = engine.duelRng.next();
+  assert(exported.duelSeed === 12345, 'export includes duel seed');
+  assert(exported.duelRngState != null, 'export includes RNG state');
+
+  const engine2 = new GameEngine('survival');
+  engine2.restoreState(exported);
+  assert(engine2.score === 250, 'restore preserves score');
+  assert(engine2.duelSeed === 12345, 'restore preserves seed');
+  assert(engine2.duelRng.next() === expectedNext, 'restore preserves RNG stream');
+}
+
 // ── Daily puzzle date uses local timezone ───────────────────────────────────
 
 function testDailyTimezone() {
@@ -219,6 +241,7 @@ console.log('Block Blast playtest');
 testHasAnyValidMove();
 testSurvivalEndMidTray();
 testUndoResetsGameOver();
+testDuelStateRestore();
 testDailyTimezone();
 testLevelUp();
 await testFrontendModules();

@@ -603,29 +603,7 @@ class App {
     // Both players ready — START the game
     this.mp.onStart = (data) => {
       if (data.rejoin) {
-        this.duelEndTime = Date.now() + data.duration;
-        this.mp.roomId = data.roomId;
-          this.duelVariant = data.variant || 'blitz';
-          this.currentMode = 'survival';
-          if (this.duelState !== 'playing') {
-          this.duelState = 'playing';
-          this.isDuel = true;
-          this.duelFinished = false;
-          this.duelResultShown = false;
-          document.body.classList.add('duel-mode');
-          showScreen('game');
-          const saved = this.mp.loadDuelState();
-          if (saved) {
-            this.engine.restoreState(saved);
-            this.renderer.setModeLabel(this.getDuelModeLabel());
-            this.startDuelTimer();
-            this.setupDuelVariantHooks(data);
-            this.updateGameUI();
-            showToast(t('multiplayer.reconnected'));
-            return;
-          }
-        }
-        showToast(t('multiplayer.reconnected'));
+        this.handleDuelRejoin(data);
         return;
       }
       if (this.duelState === 'playing' && this.mp.roomId === data.roomId) return;
@@ -870,7 +848,42 @@ class App {
     }
   }
 
-  beginDuelGame(data) {
+  handleDuelRejoin(data) {
+    this.clearDuelStartWatchdog();
+    this.duelEndTime = Date.now() + data.duration;
+    this.mp.roomId = data.roomId;
+    this.duelVariant = data.variant || 'blitz';
+    this.currentMode = 'survival';
+    this.duelState = 'playing';
+    this.isDuel = true;
+    this.duelFinished = false;
+    this.duelResultShown = false;
+    this.isTournament = false;
+    this.inputLocked = false;
+    this.renderer.inputLocked = false;
+    this.mp.markDuelActive();
+    document.body.classList.add('duel-mode');
+    document.querySelectorAll('.duel-only').forEach(el => el.classList.remove('hidden'));
+    document.getElementById('duel-timer')?.classList.remove('hidden');
+
+    const saved = this.mp.loadDuelState();
+    if (saved) {
+      showScreen('game');
+      this.engine.restoreState(saved);
+      this.renderer.setModeLabel(this.getDuelModeLabel());
+      this.setupDuelVariantHooks(data);
+      this.startDuelTimer();
+      this.updateGameUI();
+      showToast(t('multiplayer.reconnected'));
+      return;
+    }
+
+    // Session cleared — start fresh board but skip countdown (mid-duel reconnect)
+    this.beginDuelGame(data, { skipCountdown: true, rejoin: true });
+    showToast(t('multiplayer.reconnected'));
+  }
+
+  beginDuelGame(data, options = {}) {
     this.clearDuelStartWatchdog();
     this.duelState = 'playing';
     this.resetMultiplayerLobby();
@@ -886,8 +899,10 @@ class App {
     document.body.classList.add('duel-mode');
     this.duelEndTime = Date.now() + data.duration;
 
-    showToast(`${t('multiplayer.matchFound')}: ${data.opponent}`);
-    playSound('win');
+    if (!options.rejoin) {
+      showToast(`${t('multiplayer.matchFound')}: ${data.opponent}`);
+      playSound('win');
+    }
 
     const oppScoreEl = document.getElementById('opponent-score');
     if (oppScoreEl) oppScoreEl.textContent = '0';
@@ -900,6 +915,15 @@ class App {
     this.engine.initDuel(this.save.loadout, { variant: this.duelVariant, seed: data.seed });
     this.setupDuelVariantHooks(data);
     this.renderer.setModeLabel(this.getDuelModeLabel());
+
+    if (options.skipCountdown) {
+      this.inputLocked = false;
+      this.renderer.inputLocked = false;
+      this.renderer.hideOverlay();
+      this.startDuelTimer();
+      requestAnimationFrame(() => this.updateGameUI());
+      return;
+    }
 
     const variant = getVariant(this.duelVariant);
     let count = 3;

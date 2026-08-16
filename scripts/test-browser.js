@@ -86,6 +86,45 @@ async function main() {
     const modeBtns = await page.locator('.duel-mode-btn').count();
     assert(modeBtns === 5, '5 duel mode buttons shown');
 
+    // Touch-style pointer drag (mobile viewport uses immediate drag)
+    await page.locator('#screen-multiplayer .back-btn').click();
+    await page.waitForSelector('#screen-menu.active');
+    await page.click('[data-action="survival"]');
+    await page.waitForSelector('#screen-game.active');
+    const piece2 = page.locator('.tray-piece').first();
+    const pieceBox2 = await piece2.boundingBox();
+    const boardBox2 = await board.boundingBox();
+    if (pieceBox2 && boardBox2) {
+      const touchX = pieceBox2.x + pieceBox2.width / 2;
+      const touchY = pieceBox2.y + pieceBox2.height / 2;
+      const dropX = boardBox2.x + boardBox2.width * 0.3;
+      const dropY = boardBox2.y + boardBox2.height * 0.3;
+      await piece2.dispatchEvent('pointerdown', {
+        pointerId: 7, pointerType: 'touch', clientX: touchX, clientY: touchY, button: 0, bubbles: true
+      });
+      await page.evaluate(({ dropX, dropY }) => {
+        document.dispatchEvent(new PointerEvent('pointermove', {
+          pointerId: 7, pointerType: 'touch', clientX: dropX, clientY: dropY, button: 0, bubbles: true
+        }));
+        document.dispatchEvent(new PointerEvent('pointerup', {
+          pointerId: 7, pointerType: 'touch', clientX: dropX, clientY: dropY, button: 0, bubbles: true
+        }));
+      }, { dropX, dropY });
+      const ghostVisible = await page.locator('.drag-ghost:not(.hidden)').count();
+      assert(ghostVisible === 0, 'touch pointer drag ends with ghost hidden');
+    }
+
+    // Duel mode picker labels
+    await page.click('#btn-back');
+    await page.waitForSelector('#screen-menu.active');
+    await page.click('[data-action="multiplayer"]');
+    await page.waitForSelector('#screen-multiplayer.active');
+    const blitzBtn = page.locator('.duel-mode-btn').first();
+    await blitzBtn.click();
+    assert(await blitzBtn.evaluate(el => el.classList.contains('selected')), 'duel mode selection toggles');
+    const blitzName = await blitzBtn.locator('.duel-mode-name').textContent();
+    assert(blitzName?.length > 0, 'duel mode has label');
+
     // Hebrew i18n
     await page.locator('#screen-multiplayer .back-btn').click();
     await page.waitForSelector('#screen-menu.active');

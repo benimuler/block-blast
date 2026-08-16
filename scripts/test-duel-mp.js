@@ -129,6 +129,42 @@ async function testForfeit() {
   b.disconnect();
 }
 
+async function testRejoin() {
+  console.log('\nDuel rejoin after disconnect');
+  const a = await connectClient('RejoinA');
+  const b = await connectClient('RejoinB');
+
+  a.emit('find_duel', { username: 'RejoinA', variant: 'blitz' }, () => {});
+  b.emit('find_duel', { username: 'RejoinB', variant: 'blitz' }, () => {});
+  const [fa] = await Promise.all([waitFor(a, 'duel_found'), waitFor(b, 'duel_found')]);
+
+  a.emit('duel_ready', { roomId: fa.roomId });
+  b.emit('duel_ready', { roomId: fa.roomId });
+  await Promise.all([waitFor(a, 'duel_start'), waitFor(b, 'duel_start')]);
+
+  a.emit('duel_score', { roomId: fa.roomId, score: 42 });
+  a.disconnect();
+
+  await new Promise(r => setTimeout(r, 300));
+
+  const a2 = await connectClient('RejoinA');
+  a2.emit('auth', { username: 'RejoinA', userId: null });
+
+  const rejoinStart = waitFor(a2, 'duel_start');
+  const rejoinAck = await new Promise(resolve => {
+    a2.emit('rejoin_duel', { roomId: fa.roomId, username: 'RejoinA' }, ack => resolve(ack));
+  });
+  assert(rejoinAck?.ok === true, 'rejoin ack ok');
+
+  const rs = await rejoinStart;
+  assert(rs.rejoin === true, 'rejoin flag on duel_start');
+  assert(rs.roomId === fa.roomId, 'rejoin same room');
+  assert(typeof rs.duration === 'number' && rs.duration > 0, 'rejoin has remaining duration');
+
+  a2.disconnect();
+  b.disconnect();
+}
+
 async function main() {
   console.log(`Multiplayer duel smoke test → ${SERVER}`);
   try {
@@ -161,6 +197,13 @@ async function main() {
   } catch (e) {
     failed++;
     console.error(`  ✗ forfeit failed: ${e.message}`);
+  }
+
+  try {
+    await testRejoin();
+  } catch (e) {
+    failed++;
+    console.error(`  ✗ rejoin failed: ${e.message}`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
