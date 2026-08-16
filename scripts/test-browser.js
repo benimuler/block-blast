@@ -169,6 +169,11 @@ async function main() {
     assert(await page.locator('#setting-language').isVisible(), 'settings screen opens');
 
     await page.locator('#screen-settings .back-btn').click();
+    await page.click('[data-action="event-shop"]');
+    await page.waitForSelector('#screen-event-shop.active');
+    assert(await page.locator('#event-shop-items').isVisible(), 'event shop screen opens');
+
+    await page.locator('#screen-event-shop .back-btn').click();
     await page.click('[data-action="leaderboard"]');
     await page.waitForSelector('#screen-leaderboard.active');
     assert(await page.locator('#leaderboard-list').isVisible(), 'leaderboard screen opens');
