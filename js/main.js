@@ -108,6 +108,9 @@ class App {
     applyI18nToDOM();
     this.refreshMenu();
     this.updateUserBadge();
+    if (document.getElementById('screen-multiplayer')?.classList.contains('active')) {
+      this.renderDuelModePicker();
+    }
   }
 
   updateUserBadge() {
@@ -874,6 +877,16 @@ class App {
       this.setupDuelVariantHooks(data);
       this.startDuelTimer();
       this.updateGameUI();
+      if (saved.gameOver) {
+        this.inputLocked = true;
+        this.renderer.inputLocked = true;
+        this.duelFinished = true;
+        this.renderer.showOverlay(
+          t('game.noMoves'),
+          `${t('game.score')}: ${this.engine.score} — ${t('multiplayer.waitingForResult')}`,
+          []
+        );
+      }
       showToast(t('multiplayer.reconnected'));
       return;
     }

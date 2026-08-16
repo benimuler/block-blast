@@ -4,7 +4,8 @@
  */
 import { GameEngine } from '../js/game/engine.js';
 import {
-  createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece
+  createEmptyBoard, hasAnyValidMove, canPlace, cloneShape, SHAPES, createPiece,
+  findClears, applyClears, applyShrinkRing
 } from '../js/game/board.js';
 import { getTodayKey, addXP, completeDailyPuzzle, getSave, saveGame, createDefaultSave } from '../js/systems/storage.js';
 import { getDailyPuzzle } from '../js/systems/puzzles.js';
@@ -140,6 +141,24 @@ function testUndoResetsGameOver() {
   assert(hasAnyValidMove(engine.board, engine.pieces), 'valid moves exist after undo');
 }
 
+// ── Shrink arena walls survive line clears ──────────────────────────────────
+
+function testShrinkWallsNotCleared() {
+  console.log('\nShrink arena walls survive line clears');
+  let board = createEmptyBoard();
+  board = applyShrinkRing(board, 1);
+  // Fill inner row 1 (columns 1-6 only — 0 and 7 are walls)
+  for (let c = 1; c < 7; c++) {
+    board[1][c] = { filled: true, color: 2, event: false };
+  }
+  const clears = findClears(board);
+  assert(clears.rows.includes(1), 'inner row clears when full');
+  const result = applyClears(board, clears);
+  board = result.board;
+  assert(board[0][0].wall && board[0][0].filled, 'corner wall remains after clear');
+  assert(!board[1][1].filled, 'playable cells in cleared row emptied');
+}
+
 // ── Duel state export/restore ───────────────────────────────────────────────
 
 function testDuelStateRestore() {
@@ -241,6 +260,7 @@ console.log('Block Blast playtest');
 testHasAnyValidMove();
 testSurvivalEndMidTray();
 testUndoResetsGameOver();
+testShrinkWallsNotCleared();
 testDuelStateRestore();
 testDailyTimezone();
 testLevelUp();

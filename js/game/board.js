@@ -101,10 +101,15 @@ export function findClears(board) {
   const clearCols = [];
 
   for (let r = 0; r < size; r++) {
-    if (board[r].every(cell => cell.filled)) clearRows.push(r);
+    const playable = board[r].filter(cell => !cell.wall);
+    if (playable.length > 0 && playable.every(cell => cell.filled)) clearRows.push(r);
   }
   for (let c = 0; c < size; c++) {
-    if (board.every(row => row[c].filled)) clearCols.push(c);
+    const playable = [];
+    for (let r = 0; r < size; r++) {
+      if (!board[r][c].wall) playable.push(board[r][c]);
+    }
+    if (playable.length > 0 && playable.every(cell => cell.filled)) clearCols.push(c);
   }
   return { rows: clearRows, cols: clearCols };
 }
@@ -129,6 +134,7 @@ export function applyClears(board, clears) {
 
   for (const key of cleared) {
     const [r, c] = key.split(',').map(Number);
+    if (newBoard[r][c].wall) continue;
     newBoard[r][c] = { filled: false, color: 0, event: false };
   }
 
