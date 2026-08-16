@@ -980,6 +980,8 @@ class App {
     this.duelState = 'idle';
     this.mp.clearDuelSession();
     this.renderer.hideOverlay();
+    document.getElementById('duel-timer')?.classList.add('hidden');
+    document.querySelectorAll('.duel-only').forEach(el => el.classList.add('hidden'));
 
     const me = getPlayerName();
     const myScore = data.scores.find(s => s.username === me)?.score ?? this.engine.score;
