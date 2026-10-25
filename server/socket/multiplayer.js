@@ -319,7 +319,7 @@ function endDuel(roomId, io) {
   else if (p2.score > p1.score) winnerId = p2.userId;
 
   if (p1.userId && p2.userId) {
-    dbApi.saveDuel(roomId, winnerId, p1.userId, p2.userId, p1.score, p2.score);
+    Promise.resolve(dbApi.saveDuel(roomId, winnerId, p1.userId, p2.userId, p1.score, p2.score)).catch(e => console.error("saveDuel failed", e));
   }
 
   const endPayload = {
