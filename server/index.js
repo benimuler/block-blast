@@ -70,8 +70,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/tournament', tournamentRoutes);
 
-app.get('/api/stats', (_req, res) => {
-  res.json({ totalUsers: dbApi.getTotalUsers(), online: getOnlineCount(io) });
+app.get('/api/stats', async (_req, res) => {
+  res.json({ totalUsers: await dbApi.getTotalUsers(), online: getOnlineCount(io) });
 });
 
 app.get('/api/mp/status', (_req, res) => {
