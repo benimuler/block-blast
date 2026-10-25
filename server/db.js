@@ -141,6 +141,24 @@ export const dbApi = {
     saveDb(db);
   },
 
+  deleteUser(id) {
+    const db = loadDb();
+    const before = db.users.length;
+    db.users = db.users.filter(u => u.id !== id);
+    delete db.saves[id];
+    db.tournament_scores = db.tournament_scores.filter(t => t.user_id !== id);
+    db.achievements = db.achievements.filter(a => a.user_id !== id);
+    // Duel history: keep results for the other player but drop this user's id.
+    db.duel_results = db.duel_results.map(d => ({
+      ...d,
+      winner_id: d.winner_id === id ? null : d.winner_id,
+      player1_id: d.player1_id === id ? null : d.player1_id,
+      player2_id: d.player2_id === id ? null : d.player2_id
+    }));
+    saveDb(db);
+    return db.users.length < before;
+  },
+
   getTotalUsers() {
     return loadDb().users.length;
   },
@@ -150,4 +168,13 @@ export const dbApi = {
   }
 };
 
-export default dbApi;
+// Storage selection: DATABASE_URL (Postgres) when set, otherwise the local JSON file (not durable on ephemeral hosts).
+let store = dbApi;
+if (process.env.DATABASE_URL) {
+  const { createPgApiFromEnv } = await import('./db-pg.js');
+  store = await createPgApiFromEnv(process.env.DATABASE_URL);
+  console.log('[db] using Postgres via DATABASE_URL');
+} else {
+  console.warn('[db] DATABASE_URL not set: using local JSON file (data is lost when the host disk is ephemeral)');
+}
+export default store;
