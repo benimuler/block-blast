@@ -21,6 +21,9 @@ import { ACHIEVEMENTS, checkAchievements, getLocalAchievements, mergeAchievement
 import { TROPHIES, checkTrophies, recordDuelResult, getWinRate } from './systems/trophies.js';
 import { loadSettings, getSettings, updateSettings, playSound, shouldShowTutorial, markTutorialSeen } from './systems/settings.js';
 
+// Installed (Capacitor) app detection; false on the plain website.
+const isNativeApp = () => !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+
 class App {
   constructor() {
     initI18n();
