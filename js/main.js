@@ -37,6 +37,7 @@ class App {
     this.isTournament = false;
     this.isDuel = false;
     this.duelFinished = false;
+    this.duelEnded = false;
     this.duelState = 'idle'; // idle | searching | matched | playing
     this.duelTimer = null;
     this.duelEndTime = 0;
@@ -349,6 +350,7 @@ class App {
       if (this.isDuel) {
         this.isDuel = false;
         this.duelFinished = true;
+        this.duelEnded = true;
         this.duelState = 'idle';
         this.mp.finishDuel(this.engine.score);
         showScreen('multiplayer');
@@ -569,13 +571,16 @@ class App {
     };
 
     this.mp.onEnd = (data) => {
-      if (this.duelFinished) return;
+      // duelFinished only means we already sent our own final score; the result must still be shown.
+      if (this.duelEnded) return;
+      this.duelEnded = true;
       this.duelFinished = true;
       this.endDuelUI(data);
     };
 
     this.mp.onOpponentLeft = () => {
-      if (!this.isDuel || this.duelFinished) return;
+      if (!this.isDuel || this.duelEnded) return;
+      this.duelEnded = true;
       this.duelFinished = true;
       this.duelState = 'idle';
       if (this.duelTimer) clearInterval(this.duelTimer);
@@ -727,6 +732,7 @@ class App {
     this.duelState = 'playing';
     this.resetMultiplayerLobby();
     this.duelFinished = false;
+    this.duelEnded = false;
     this.isDuel = true;
     this.isTournament = false;
     this.inputLocked = true;
