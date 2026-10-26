@@ -263,7 +263,16 @@ class App {
   }
 
   updateGameUI() {
-    this.renderer.renderBoard(this.engine.board);
+    const mv = this.engine.lastMove;
+    this.engine.lastMove = null;
+    clearTimeout(this._clearTimer);
+    if (mv && mv.cleared.length) {
+      // Show the piece landing, flash and shrink the cleared cells, then show the real board.
+      this.renderer.renderBoard(mv.preBoard, mv.cleared);
+      this._clearTimer = setTimeout(() => this.renderer.renderBoard(this.engine.board), 230);
+    } else {
+      this.renderer.renderBoard(this.engine.board, [], mv ? mv.placed : []);
+    }
     this.renderer.renderTray(this.engine.pieces, (piece, row, col) =>
       this.engine.getPreviewCells(piece, row, col)
     );
@@ -463,7 +472,7 @@ class App {
 
     this.renderer.showOverlay(
       t('game.gameOver'),
-      `${t('game.score')}: ${this.engine.score} | +${earned}`,
+      `${t('game.score')}: ${this.engine.score} | +${earned} 🪙`,
       actions
     );
 
@@ -828,7 +837,13 @@ class App {
     const phoneSetup = document.getElementById('mp-phone-setup');
     const shareBox = document.getElementById('mp-share-box');
 
-    if (isMobile) {
+    const hn = window.location.hostname;
+    const isLocalDev = !isNativeApp() && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hn);
+    if (isMobile && !isLocalDev) {
+      // Public site or installed app: the server is fixed, no LAN setup needed
+      shareBox?.classList.add('hidden');
+      phoneSetup?.classList.add('hidden');
+    } else if (isMobile) {
       shareBox?.classList.add('hidden');
       // Show setup if not connected to a real LAN server
       const onLocalhost = isPhoneOnLocalhost();
@@ -959,6 +974,7 @@ class App {
     this.updateToggle('setting-sound', settings.sound);
     this.updateToggle('setting-music', settings.music);
 
+    if (isNativeApp() || !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(window.location.hostname)) document.getElementById('setting-server-row')?.classList.add('hidden');
     const serverInput = document.getElementById('setting-server-url');
     if (serverInput) {
       serverInput.value = localStorage.getItem('blockblast_server') || '';
