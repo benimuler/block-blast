@@ -138,6 +138,20 @@ export class GameEngine {
     return true;
   }
 
+  /**
+   * True when no unused piece fits anywhere. Earned rescue abilities still count as a
+   * move: an unused rotation that makes a piece fit, or an unused undo with a move to undo.
+   */
+  noMovesLeft() {
+    if (hasAnyValidMove(this.board, this.pieces)) return false;
+    if (this.mode === 'survival' && this.effects.undo && !this.abilities.undoUsed && this.history.length > 0) return false;
+    if (this.effects.rotation && !this.abilities.rotationUsed) {
+      const rotated = this.pieces.filter(p => !p.used).map(p => ({ ...p, shape: rotateShape(p.shape) }));
+      if (hasAnyValidMove(this.board, rotated)) return false;
+    }
+    return true;
+  }
+
   tryPlace(pieceId, row, col) {
     if (this.gameOver || this.won) return false;
 
@@ -218,16 +232,22 @@ export class GameEngine {
           this.gameOver = true;
           this.onPuzzleFail?.();
         }
+      } else if (this.noMovesLeft()) {
+        this.gameOver = true;
+        this.onPuzzleFail?.();
       }
     }
 
-    if (this.pieces.every(p => p.used)) {
-      if (this.mode === 'survival') {
+    if (this.mode === 'survival') {
+      if (this.pieces.every(p => p.used)) {
         this.generateTray();
-        if (!hasAnyValidMove(this.board, this.pieces)) {
-          this.gameOver = true;
-          this.onGameOver?.();
-        }
+      }
+      // Lose as soon as none of the remaining pieces can be placed anywhere
+      // (previously only checked after all three pieces were used, so the
+      // game could get stuck with no moves and no game-over).
+      if (this.noMovesLeft()) {
+        this.gameOver = true;
+        this.onGameOver?.();
       }
     }
 
