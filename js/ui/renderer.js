@@ -78,12 +78,18 @@ export class Renderer {
     return null;
   }
 
+  /** On touch screens the piece rides above the finger so the thumb does not cover it. */
+  getTouchLift() {
+    if (!window.matchMedia('(hover: none)').matches) return 0;
+    return this.getBoardMetrics().cellSize * 1.4;
+  }
+
   /** Top-left of shape on board — derived from grab point under finger */
   getPlacementFromPoint(clientX, clientY) {
     if (!this.dragPiece) return null;
     const { rect, padding, gap, cellSize } = this.getBoardMetrics();
     const ghostLeft = clientX - this.grabOffsetX;
-    const ghostTop = clientY - this.grabOffsetY;
+    const ghostTop = clientY - this.grabOffsetY - this.getTouchLift();
     const x = ghostLeft - rect.left - padding;
     const y = ghostTop - rect.top - padding;
     const step = cellSize + gap;
@@ -116,6 +122,12 @@ export class Renderer {
       if (!this.dragPiece) return;
       const placement = this.getPlacementFromPoint(clientX, clientY);
       const pieceId = this.dragPiece.id;
+      let ok = false;
+      if (placement) {
+        const cells = this.dragPiece.previewFn(placement.row, placement.col);
+        ok = !!(cells.length && cells[0].valid);
+      }
+      if (!ok) this.animateGhostReturn();
       this.endDrag();
       if (placement) {
         this.onPlace?.(pieceId, placement.row, placement.col);
@@ -200,6 +212,13 @@ export class Renderer {
     this.dragGhost.innerHTML = '';
     this.dragGhost.appendChild(this.createPieceGrid(piece, ghostCell, gap));
     this.dragGhost.classList.remove('hidden');
+    const gridChild = this.dragGhost.firstElementChild;
+    if (gridChild) {
+      gridChild.style.transformOrigin = `${this.grabOffsetX}px ${this.grabOffsetY}px`;
+      gridChild.classList.remove('pop');
+      void gridChild.offsetWidth;
+      gridChild.classList.add('pop');
+    }
     this.moveDragGhost(clientX, clientY);
     this.attachDragListeners();
   }
@@ -207,8 +226,29 @@ export class Renderer {
   moveDragGhost(clientX, clientY) {
     if (!this.dragGhost) return;
     const x = clientX - this.grabOffsetX;
-    const y = clientY - this.grabOffsetY;
+    const y = clientY - this.grabOffsetY - this.getTouchLift();
     this.dragGhost.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  }
+
+  /** Slide a copy of the dragged piece back to its tray slot after an invalid drop. */
+  animateGhostReturn() {
+    const g = this.dragGhost, src = this.dragSourceEl;
+    if (!g || !src || g.classList.contains('hidden')) return;
+    const gr = g.getBoundingClientRect();
+    const target = (src.querySelector('.piece-grid') || src).getBoundingClientRect();
+    if (!gr.width) return;
+    const clone = g.cloneNode(true);
+    clone.classList.remove('hidden');
+    const inner = clone.firstElementChild;
+    if (inner) inner.classList.remove('pop');
+    clone.style.transformOrigin = '0 0';
+    clone.style.transition = 'transform .16s ease-out, opacity .16s ease-out';
+    document.body.appendChild(clone);
+    requestAnimationFrame(() => {
+      clone.style.transform = `translate3d(${target.left}px, ${target.top}px, 0) scale(${target.width / gr.width})`;
+      clone.style.opacity = '0.5';
+    });
+    setTimeout(() => clone.remove(), 220);
   }
 
   endDrag() {
@@ -243,7 +283,7 @@ export class Renderer {
     this.previewCells = [];
   }
 
-  renderBoard(board, clearingCells = []) {
+  renderBoard(board, clearingCells = [], placedCells = []) {
     const cells = this.boardEl.children;
     for (let r = 0; r < GRID_SIZE; r++) {
       for (let c = 0; c < GRID_SIZE; c++) {
@@ -261,6 +301,9 @@ export class Renderer {
         }
         if (clearingCells.some(cc => cc.row === r && cc.col === c)) {
           el.classList.add('clearing');
+        }
+        if (placedCells.length && placedCells.some(pc => pc.row === r && pc.col === c)) {
+          el.classList.add('just-placed');
         }
       }
     }

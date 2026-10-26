@@ -1194,3 +1194,9 @@ body.duel-mode .game-header-stats {
   }
 }
 
+
+/* Game feel: pickup ease, placement settle */
+.drag-ghost.pop, .drag-ghost > .pop { animation: ghostPop 0.11s ease-out; }
+@keyframes ghostPop { from { transform: scale(0.64); } to { transform: scale(1); } }
+.cell.just-placed { animation: placePop 0.14s ease-out; }
+@keyframes placePop { 0% { transform: scale(0.82); } 60% { transform: scale(1.07); } 100% { transform: scale(1); } }
