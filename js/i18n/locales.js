@@ -27,8 +27,8 @@ export const LANGUAGES = [
 ];
 
 const en = {
-  'app.title': 'Block Blast',
-  'app.subtitle': 'Evolved',
+  'app.title': 'בלוק בלאסט',
+  'app.subtitle': 'אונליין',
   'app.tagline': 'Block matching · Strategy · Progression',
   'menu.survival': 'Survival Mode',
   'menu.daily': 'Daily Puzzle',
