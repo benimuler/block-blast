@@ -17,6 +17,7 @@ export class GameEngine {
     this.tokensEarned = 0;
     this.eventTokensEarned = 0;
     this.combo = 0;
+    this.lastMove = null;
     this.gameOver = false;
     this.won = false;
     this.adaptive = new AdaptiveEngine();
@@ -158,7 +159,9 @@ export class GameEngine {
 
     this.adaptive.recordPlacement(row, col, piece.shape);
 
+    const preBoard = this.board;
     let newBoard = placePiece(this.board, piece.shape, row, col, piece.color, piece.isEvent);
+    const placedAt = newBoard;
     piece.used = true;
 
     const clears = findClears(newBoard);
@@ -179,6 +182,14 @@ export class GameEngine {
     }
 
     this.board = newBoard;
+
+    // Visual info only (animation); never read by game rules.
+    const placed = [], cleared = [];
+    piece.shape.forEach((rowArr, dr) => rowArr.forEach((v, dc) => { if (v) placed.push({ row: row + dr, col: col + dc }); }));
+    for (let rr = 0; rr < placedAt.length; rr++) for (let cc = 0; cc < placedAt[rr].length; cc++) {
+      if (placedAt[rr][cc].filled && !newBoard[rr][cc].filled) cleared.push({ row: rr, col: cc });
+    }
+    this.lastMove = { placed, cleared, preBoard: placedAt };
 
     let points = piece.shape.flat().filter(Boolean).length * 10;
     if (linesCleared > 0) {
