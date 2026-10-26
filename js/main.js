@@ -234,7 +234,9 @@ class App {
     };
 
     this.renderer.onAbilityRotate = () => {
-      const piece = this.engine.pieces.find(p => !p.used);
+      const rescue = this.engine.getRescues();
+      const piece = (rescue && rescue.rotatePieceId && this.engine.pieces.find(p => p.id === rescue.rotatePieceId))
+        || this.engine.pieces.find(p => !p.used);
       if (piece && this.engine.rotatePiece(piece.id)) {
         showToast(t('game.rotate'));
         playSound('click');
@@ -285,7 +287,8 @@ class App {
       puzzleMoveIndex: this.engine.puzzleMoveIndex,
       puzzleTotalMoves: this.engine.puzzleTotalMoves
     });
-    this.renderer.renderAbilities(this.engine.effects, this.engine.abilities, this.currentMode);
+    this.renderer.renderAbilities(this.engine.effects, this.engine.abilities, this.currentMode,
+      this.engine.gameOver ? null : this.engine.getRescues());
     this.renderer.renderPuzzleInfo({
       puzzleMoveIndex: this.engine.puzzleMoveIndex,
       puzzleTotalMoves: this.engine.puzzleTotalMoves

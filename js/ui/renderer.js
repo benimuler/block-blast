@@ -422,13 +422,25 @@ export class Renderer {
     }
   }
 
-  renderAbilities(effects, abilities, mode) {
+  renderAbilities(effects, abilities, mode, rescue) {
     this.abilitiesEl.innerHTML = '';
+    this.abilitiesEl.classList.remove('rescue-active');
     if (mode !== 'survival') return;
+    const canRotate = !!(rescue && rescue.rotatePieceId);
+    const canUndo = !!(rescue && rescue.undo);
+    if (canRotate || canUndo) {
+      this.abilitiesEl.classList.add('rescue-active');
+      const hint = document.createElement('div');
+      hint.className = 'rescue-hint';
+      const tt = (k, d) => (typeof window !== 'undefined' && window.__t ? window.__t(k) : d);
+      hint.textContent = canRotate && canUndo ? tt('game.stuckBoth', 'No space! Rotate or undo')
+        : canRotate ? tt('game.stuckRotate', 'No space! Use Rotate') : tt('game.stuckUndo', 'No space! Use Undo');
+      this.abilitiesEl.appendChild(hint);
+    }
 
     if (effects.rotation) {
       const btn = document.createElement('button');
-      btn.className = 'ability-btn' + (abilities.rotationUsed ? ' used' : '');
+      btn.className = 'ability-btn' + (abilities.rotationUsed ? ' used' : '') + (canRotate ? ' rescue' : '');
       btn.textContent = '🔄 ' + (typeof window !== 'undefined' && window.__t ? window.__t('game.abilityRotate') : 'Rotate');
       btn.disabled = abilities.rotationUsed;
       btn.addEventListener('click', () => this.onAbilityRotate?.());
@@ -437,7 +449,7 @@ export class Renderer {
 
     if (effects.undo) {
       const btn = document.createElement('button');
-      btn.className = 'ability-btn' + (abilities.undoUsed ? ' used' : '');
+      btn.className = 'ability-btn' + (abilities.undoUsed ? ' used' : '') + (canUndo ? ' rescue' : '');
       btn.textContent = '⏪ ' + (typeof window !== 'undefined' && window.__t ? window.__t('game.abilityUndo') : 'Undo');
       btn.disabled = abilities.undoUsed;
       btn.addEventListener('click', () => this.onUndo?.());

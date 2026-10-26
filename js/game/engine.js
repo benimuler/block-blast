@@ -139,17 +139,27 @@ export class GameEngine {
   }
 
   /**
+   * When no unused piece fits, lists the earned rescues that could still help:
+   * { undo: bool, rotatePieceId: id|null }. Returns null while a normal move exists.
+   */
+  getRescues() {
+    if (hasAnyValidMove(this.board, this.pieces)) return null;
+    const undo = this.mode === 'survival' && !!this.effects.undo && !this.abilities.undoUsed && this.history.length > 0;
+    let rotatePieceId = null;
+    if (this.effects.rotation && !this.abilities.rotationUsed) {
+      const hit = this.pieces.find(p => !p.used && hasAnyValidMove(this.board, [{ ...p, shape: rotateShape(p.shape) }]));
+      if (hit) rotatePieceId = hit.id;
+    }
+    return { undo, rotatePieceId };
+  }
+
+  /**
    * True when no unused piece fits anywhere. Earned rescue abilities still count as a
    * move: an unused rotation that makes a piece fit, or an unused undo with a move to undo.
    */
   noMovesLeft() {
-    if (hasAnyValidMove(this.board, this.pieces)) return false;
-    if (this.mode === 'survival' && this.effects.undo && !this.abilities.undoUsed && this.history.length > 0) return false;
-    if (this.effects.rotation && !this.abilities.rotationUsed) {
-      const rotated = this.pieces.filter(p => !p.used).map(p => ({ ...p, shape: rotateShape(p.shape) }));
-      if (hasAnyValidMove(this.board, rotated)) return false;
-    }
-    return true;
+    const r = this.getRescues();
+    return !!r && !r.undo && !r.rotatePieceId;
   }
 
   tryPlace(pieceId, row, col) {

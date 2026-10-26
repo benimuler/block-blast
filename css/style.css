@@ -229,6 +229,10 @@ body {
 .ability-btn:not(:disabled):hover { border-color: var(--accent); }
 .ability-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .ability-btn.used { opacity: 0.35; text-decoration: line-through; }
+.game-abilities.rescue-active { flex-wrap: wrap; }
+.rescue-hint { flex-basis: 100%; text-align: center; font-size: 0.8rem; font-weight: 700; color: #ffd166; }
+.ability-btn.rescue { border-color: var(--accent); animation: rescue-pulse 1s ease-in-out infinite; }
+@keyframes rescue-pulse { 0%,100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 10px 2px var(--accent); } }
 
 /* Board */
 .board-container {
