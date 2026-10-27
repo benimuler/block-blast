@@ -188,6 +188,17 @@
           <input type="url" id="setting-server-url" class="setting-input" placeholder="http://192.168.x.x:3001">
           <button class="btn btn-secondary btn-sm" id="btn-save-server" data-i18n="settings.saveServer">Save</button>
         </div>
+        <div class="setting-row setting-row-col hidden" id="setting-delete-row">
+          <label data-i18n="settings.deleteAccount">Delete account permanently</label>
+          <button class="btn btn-secondary btn-sm" id="btn-delete-account" data-i18n="settings.deleteAccount">Delete account permanently</button>
+          <div id="delete-confirm" class="hidden">
+            <input type="password" id="delete-password" class="setting-input" data-i18n-placeholder="settings.deleteAccountPassword" placeholder="Password to confirm">
+            <div class="delete-confirm-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-delete-confirm" data-i18n="settings.deleteAccountConfirm">Delete permanently</button>
+              <button class="btn btn-secondary btn-sm" id="btn-delete-cancel" data-i18n="multiplayer.cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="settings-online" id="settings-online"></div>
     </section>

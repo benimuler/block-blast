@@ -74,4 +74,19 @@ router.put('/profile', authMiddleware, ah(async (req, res) => {
   res.json({ user });
 }));
 
+router.delete('/account', authMiddleware, ah(async (req, res) => {
+  const { password } = req.body || {};
+  if (!password) return res.status(400).json({ error: 'missing_fields' });
+
+  const me = await dbApi.findById(req.user.id);
+  if (!me) return res.status(404).json({ error: 'not_found' });
+  const user = await dbApi.getUserWithPassword(me.email);
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    return res.status(401).json({ error: 'invalid_credentials' });
+  }
+
+  await dbApi.deleteUser(req.user.id);
+  res.json({ ok: true });
+}));
+
 export default router;

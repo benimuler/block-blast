@@ -63,6 +63,15 @@ export async function login(email, password) {
   return data;
 }
 
+export async function deleteAccount(password) {
+  const data = await request('/auth/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ password })
+  });
+  logout();
+  return data;
+}
+
 export function logout() {
   setToken(null);
   setUser(null);

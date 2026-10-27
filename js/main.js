@@ -13,7 +13,7 @@ import { initI18n, t, setLang, getLang, getLanguages, applyI18nToDOM, onLangChan
 import {
   register, login, logout, isLoggedIn, getUser, syncSave, loadCloudSave,
   submitTournamentScore, getLeaderboard, checkHealth, getServerStats, unlockAchievement,
-  getAchievements
+  getAchievements, deleteAccount
 } from './systems/auth.js';
 import { MultiplayerClient } from './systems/multiplayer.js';
 import { getPlayerName, getServerOrigin, saveServerOrigin, isMobileDevice, testServerConnection, fetchLanUrls, isPhoneOnLocalhost, isWrongPort, isServerV3 } from './systems/network.js';
@@ -993,6 +993,9 @@ class App {
       serverInput.placeholder = getServerOrigin();
     }
 
+    document.getElementById('setting-delete-row')?.classList.toggle('hidden', !isLoggedIn());
+    document.getElementById('delete-confirm')?.classList.add('hidden');
+
     getServerStats().then(s => {
       document.getElementById('settings-online').textContent =
         `🟢 ${t('settings.online')}: ${s.online}`;
@@ -1037,6 +1040,33 @@ class App {
       }
       this.mp.disconnect();
       playSound('click');
+    });
+
+
+    document.getElementById('btn-delete-account')?.addEventListener('click', () => {
+      document.getElementById('delete-confirm')?.classList.remove('hidden');
+      playSound('click');
+    });
+
+    document.getElementById('btn-delete-cancel')?.addEventListener('click', () => {
+      document.getElementById('delete-confirm')?.classList.add('hidden');
+      const pw = document.getElementById('delete-password');
+      if (pw) pw.value = '';
+      playSound('click');
+    });
+
+    document.getElementById('btn-delete-confirm')?.addEventListener('click', async () => {
+      const pw = document.getElementById('delete-password')?.value || '';
+      if (!pw) return;
+      try {
+        await deleteAccount(pw);
+        showToast(t('settings.deleteAccountDone'));
+        document.getElementById('delete-confirm')?.classList.add('hidden');
+        showScreen('menu');
+        this.refreshMenu();
+      } catch (err) {
+        showToast(t(err?.error === 'invalid_credentials' ? 'settings.deleteAccountWrong' : 'auth.error'));
+      }
     });
 
     document.getElementById('btn-show-tutorial')?.addEventListener('click', () => this.showTutorial());
