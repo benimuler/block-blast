@@ -1,0 +1,9 @@
+{
+  "appId": "blockblast.online.com",
+  "appName": "בלוק בלאסט אונליין",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0f0e17"
+  }
+}

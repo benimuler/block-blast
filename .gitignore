@@ -3,3 +3,6 @@ server/data/
 .env
 *.log
 .DS_Store
+www/
+android/keystore.properties
+android/keystore/

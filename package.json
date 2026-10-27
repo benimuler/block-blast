@@ -10,7 +10,9 @@
     "start": "node server/index.js",
     "start:prod": "node --env-file=.env server/index.js",
     "dev": "node --watch server/index.js",
-    "test:puzzles": "node scripts/test-puzzles.js"
+    "test:puzzles": "node scripts/test-puzzles.js",
+    "build:mobile": "node scripts/build-mobile.js",
+    "cap:sync": "npm run build:mobile && npx cap sync android"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,9 +21,12 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.23.1",
     "socket.io": "^4.8.1",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.11"
+    "@electric-sql/pglite": "^0.5.11",
+    "@capacitor/cli": "^8.5.0"
   }
 }
